@@ -15,6 +15,7 @@ DEFAULT_CONFIG = {
     "voice": "Charon",
     "youtube_api_key": "",
     "youtube_channel_handle": "",
+    "mic_input_level": 100,
 }
 
 

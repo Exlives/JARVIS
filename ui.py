@@ -19,6 +19,7 @@ BASE_DIR = Path(__file__).resolve().parent
 
 SYSTEM_NAME = "J.A.R.V.I.S"
 MODEL_BADGE = "VOICE CORE  -  Windows"
+ENABLE_MIC_DB_BAR = True
 
 # â”€â”€ Renk paleti â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 C_BG      = "#020c0c"
@@ -518,6 +519,7 @@ class JarvisUI:
         self.status_blink    = True
         self._jarvis_state   = "INITIALISING"
         self._user_speaking_until = 0.0
+        self._mic_level = 0.0
 
         # â”€â”€ Health overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         self._health_visible  = False
@@ -547,7 +549,7 @@ class JarvisUI:
             "panel_x": 14,
             "panel_y": HDR_H + 10,
             "panel_w": 320,
-            "panel_h": 292,
+            "panel_h": 372,
         }
         self.setup_frame = None
         self.api_entry = None
@@ -647,6 +649,7 @@ class JarvisUI:
         self._build_sfx_button(self._settings_body)
         self._build_api_button(self._settings_body)
         self._build_fx_slider(self._settings_body)
+        self._build_mic_slider(self._settings_body)
         self._layout_settings_controls()
         self._place_layout_widgets()
 
@@ -907,8 +910,10 @@ class JarvisUI:
         self._settings_sfx_label.place(x=0, y=92)
         self._volume_label.place(x=0, y=116)
         self._volume_scale.place(x=0, y=136, width=inner_w, height=26)
-        self._voice_label.place(x=0, y=178)
-        self._voice_menu.place(x=88, y=172, width=inner_w - 88, height=30)
+        self._mic_label.place(x=0, y=164)
+        self._mic_scale.place(x=0, y=184, width=inner_w, height=26)
+        self._voice_label.place(x=0, y=220)
+        self._voice_menu.place(x=88, y=214, width=inner_w - 88, height=30)
 
     def _refresh_settings_status(self):
         if not hasattr(self, "_settings_status_primary"):
@@ -1008,6 +1013,42 @@ class JarvisUI:
         )
         self._volume_scale.set(int(self.sound.get_volume() * 100))
 
+    def _build_mic_slider(self, parent=None):
+        parent = parent or self.root
+        slider_w = 280
+        cfg = load_app_config()
+        try:
+            mic_level = max(0, min(200, int(float(cfg.get("mic_input_level", 100)))))
+        except (TypeError, ValueError):
+            mic_level = 100
+        self._mic_input_level = mic_level
+        self._mic_label = tk.Label(
+            parent,
+            text=f"MIC LEVEL  {mic_level}%",
+            fg=C_BLUE,
+            bg=parent.cget("bg"),
+            font=font_body_bold(10),
+        )
+        self._mic_scale = tk.Scale(
+            parent,
+            from_=0,
+            to=200,
+            orient="horizontal",
+            length=slider_w,
+            showvalue=False,
+            resolution=1,
+            troughcolor="#071818",
+            bg=parent.cget("bg"),
+            fg=C_TEXT,
+            activebackground=C_BLUE,
+            highlightthickness=0,
+            borderwidth=0,
+            sliderlength=18,
+            width=10,
+            command=self._on_mic_level_change,
+        )
+        self._mic_scale.set(mic_level)
+
     def _on_volume_change(self, value):
         try:
             volume = max(0, min(100, int(float(value))))
@@ -1015,6 +1056,18 @@ class JarvisUI:
             return
         self._volume_label.configure(text=f"FX LEVEL  {volume}%")
         self.sound.set_volume(volume / 100.0)
+
+    def _on_mic_level_change(self, value):
+        try:
+            level = max(0, min(200, int(float(value))))
+        except (TypeError, ValueError):
+            return
+        self._mic_input_level = level
+        self._mic_label.configure(text=f"MIC LEVEL  {level}%")
+        save_app_config({"mic_input_level": level})
+
+    def get_mic_input_gain(self) -> float:
+        return max(0.0, min(2.0, getattr(self, "_mic_input_level", 100) / 100.0))
 
     def _play_startup_sfx_once(self):
         pass
@@ -1305,6 +1358,13 @@ class JarvisUI:
     def set_user_speaking(self, value: bool):
         self.mark_user_activity(value)
 
+    def set_mic_level(self, level: float):
+        try:
+            v = float(level)
+        except (TypeError, ValueError):
+            v = 0.0
+        self._mic_level = max(0.0, min(1.0, v))
+
     def mark_user_activity(self, active: bool = True):
         self.user_speaking = active
         self._user_speaking_until = time.time() + (0.9 if active else 0.0)
@@ -1417,6 +1477,7 @@ class JarvisUI:
 
         if self.user_speaking and now > self._user_speaking_until:
             self.user_speaking = False
+        self._mic_level *= 0.84
 
         if t % 90 == 0:
             threading.Thread(target=self._update_stats, daemon=True).start()
@@ -2006,6 +2067,16 @@ class JarvisUI:
 
         state_label = "PAUSED" if self.paused else self._jarvis_state
         state_col = self._state_color(state_label)
+        if ENABLE_MIC_DB_BAR:
+            bar_w = 210
+            bar_h = 8
+            bar_x = self.FCX - bar_w // 2
+            bar_y = self.CTRL_Y - 60
+            level = 0.0 if self.paused else self._mic_level
+            c.create_rectangle(bar_x, bar_y, bar_x + bar_w, bar_y + bar_h, fill="#041212", outline=C_DIM, width=1)
+            fill_w = max(1, int((bar_w - 2) * level))
+            c.create_rectangle(bar_x + 1, bar_y + 1, bar_x + 1 + fill_w, bar_y + bar_h - 1, fill=C_GREEN, outline="")
+            c.create_text(self.FCX, bar_y - 8, text=f"MIC {int(level * 100):02d}%", fill=C_MID, font=font_body(9))
         c.create_text(self.FCX, self.CTRL_Y - 34, text=SYSTEM_NAME,
                       fill=C_TEXT, font=font_display(18))
         c.create_text(self.FCX, self.CTRL_Y - 12, text=f"* {state_label.title()}",

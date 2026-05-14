@@ -31,6 +31,7 @@ from actions.media     import play_media
 from actions.weather   import get_weather_summary
 from actions.screen_vision import analyze_screen
 from actions.youtube_stats import get_youtube_channel_report
+from actions import tts as tts_actions
 
 # Paths
 BASE_DIR        = Path(__file__).resolve().parent
@@ -500,14 +501,39 @@ class JarvisLive:
 
         self.ui.on_text_command  = self._on_text_command
         self.ui.on_pause_toggle  = self._on_pause_toggle
+        self.ui.on_voice_change  = self._on_voice_change
         self.ui.on_effects_state_change = self._on_effects_state_change
         self._paused             = False
+        self._suppress_next_disconnect_error = False
+        self._pending_voice_announcement = ""
 
     def _on_pause_toggle(self, paused: bool):
         self._paused = paused
 
     def _on_effects_state_change(self, enabled: bool):
         pass
+
+    def _on_voice_change(self, voice: str):
+        selected = str(voice or "").strip() or "Charon"
+        self.ui.write_log(f"SYS: Ses değiştirildi: {selected}")
+        self._suppress_next_disconnect_error = True
+        self._pending_voice_announcement = selected
+        try:
+            tts_actions.VOICE = selected
+        except Exception:
+            pass
+        if self._loop:
+            asyncio.run_coroutine_threadsafe(self._reconnect_session_for_voice(), self._loop)
+
+    async def _reconnect_session_for_voice(self):
+        try:
+            await self._interrupt_audio()
+            if self.session and hasattr(self.session, "close"):
+                maybe = self.session.close()
+                if asyncio.iscoroutine(maybe):
+                    await maybe
+        except Exception:
+            pass
 
     def _focus_ui_section_for_tool(self, tool_name: str, args: dict):
         if tool_name == "sys_info":
@@ -870,6 +896,26 @@ class JarvisLive:
             while True:
                 data = await asyncio.to_thread(
                     stream.read, CHUNK_SIZE, exception_on_overflow=False)
+                try:
+                    gain = self.ui.get_mic_input_gain()
+                    if abs(gain - 1.0) > 0.001:
+                        pcm = bytearray(data)
+                        pcm_samples = memoryview(pcm).cast("h")
+                        for i in range(len(pcm_samples)):
+                            v = int(pcm_samples[i] * gain)
+                            if v > 32767:
+                                v = 32767
+                            elif v < -32768:
+                                v = -32768
+                            pcm_samples[i] = v
+                        data = bytes(pcm)
+
+                    samples = memoryview(data).cast("h")
+                    peak = max((abs(int(s)) for s in samples), default=0)
+                    mic_level = min(1.0, peak / 32767.0)
+                    self.ui.set_mic_level(mic_level)
+                except Exception:
+                    self.ui.set_mic_level(0.0)
                 with self._speaking_lock:
                     jarvis_speaking = self._is_speaking
                 if not jarvis_speaking and not self.ui.muted and not self._paused:
@@ -1010,6 +1056,23 @@ class JarvisLive:
                     print("[JARVIS] Bağlandı.")
                     self.ui.set_state("LISTENING")
                     self.ui.write_log("SYS: JARVIS hazır. Dinliyorum...")
+                    if self._pending_voice_announcement:
+                        announce_voice = self._pending_voice_announcement
+                        self._pending_voice_announcement = ""
+                        await self.session.send_client_content(
+                            turns={
+                                "parts": [
+                                    {
+                                        "text": (
+                                            f"Sadece tek bir kısa cümle söyle: "
+                                            f"'Ses değiştirildi. Aktif ses: {announce_voice}.' "
+                                            "Bunun dışında hiçbir şey söyleme."
+                                        )
+                                    }
+                                ]
+                            },
+                            turn_complete=True,
+                        )
 
                     tg.create_task(self._send_realtime())
                     tg.create_task(self._listen_audio())
@@ -1020,8 +1083,13 @@ class JarvisLive:
                 print(f"[JARVIS] Hata: {e}")
                 traceback.print_exc()
                 self.set_speaking(False)
-                self.ui.write_log(f"ERR: JARVIS bağlantısı kesildi veya internete ulaşılamıyor - {e}")
-                self.ui.set_state("ERROR")
+                if self._suppress_next_disconnect_error:
+                    self._suppress_next_disconnect_error = False
+                    self.ui.write_log("SYS: Ses profili güncellendi. Yeniden bağlanıyor...")
+                    self.ui.set_state("THINKING")
+                else:
+                    self.ui.write_log(f"ERR: JARVIS bağlantısı kesildi veya internete ulaşılamıyor - {e}")
+                    self.ui.set_state("ERROR")
                 print("[JARVIS] 3 saniye sonra yeniden bağlanıyor...")
                 await asyncio.sleep(3)
 
@@ -1034,6 +1102,10 @@ def main():
 
     def runner():
         ui.wait_for_api_key()
+        try:
+            tts_actions.VOICE = str(get_app_config_value("voice", "Charon") or "Charon")
+        except Exception:
+            pass
         jarvis = JarvisLive(ui)
         try:
             asyncio.run(jarvis.run())
