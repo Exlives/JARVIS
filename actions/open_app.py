@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import webbrowser
 from pathlib import Path
+from memory.memory_manager import load_memory
 
 
 APP_ALIASES = {
@@ -76,6 +77,39 @@ def _try_command(command: str) -> bool:
     return True
 
 
+def _try_shell_command(command_line: str) -> bool:
+    cmd = (command_line or "").strip()
+    if not cmd:
+        return False
+    try:
+        subprocess.Popen(
+            cmd,
+            shell=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return True
+    except Exception:
+        return False
+
+
+def _resolve_memory_launch_command(app_name: str) -> str:
+    normalized = (app_name or "").strip().lower()
+    if not normalized:
+        return ""
+    try:
+        mem = load_memory()
+        bucket = mem.get("app_launch_commands", {})
+        if not isinstance(bucket, dict):
+            return ""
+        raw = bucket.get(normalized, {})
+        if isinstance(raw, dict):
+            return str(raw.get("value", "") or "").strip()
+        return str(raw or "").strip()
+    except Exception:
+        return ""
+
+
 def _search_program_files(name: str) -> str | None:
     exe_name = name if name.lower().endswith(".exe") else f"{name}.exe"
     roots = [
@@ -101,8 +135,12 @@ def open_app(app_name: str) -> str:
 
     normalized = app_name.lower().strip()
     resolved = APP_ALIASES.get(normalized, app_name.strip())
+    memory_cmd = _resolve_memory_launch_command(normalized)
 
     try:
+        if memory_cmd and _try_shell_command(memory_cmd):
+            return f"{app_name} açıldı."
+
         if resolved.startswith(("http://", "https://")):
             webbrowser.open(resolved)
             return f"{app_name} acildi."

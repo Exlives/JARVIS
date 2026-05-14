@@ -11,6 +11,7 @@ import threading
 import traceback
 import os
 import re
+import time
 from pathlib import Path
 
 import pyaudio  # type: ignore[reportMissingModuleSource]
@@ -506,6 +507,9 @@ class JarvisLive:
         self._paused             = False
         self._suppress_next_disconnect_error = False
         self._pending_voice_announcement = ""
+        self._awaiting_response = False
+        self._awaiting_since = 0.0
+        self._watchdog_reconnect_inflight = False
 
     def _on_pause_toggle(self, paused: bool):
         self._paused = paused
@@ -552,13 +556,49 @@ class JarvisLive:
         if not self._loop or not self.session:
             self.ui.write_log("ERR: JARVIS bağlantısı henüz hazır değil.")
             return
-        asyncio.run_coroutine_threadsafe(
+        self._awaiting_response = True
+        self._awaiting_since = time.time()
+        self.ui.set_state("THINKING")
+        fut = asyncio.run_coroutine_threadsafe(
             self.session.send_client_content(
                 turns={"parts": [{"text": text}]},
                 turn_complete=True
             ),
             self._loop
         )
+        def _on_done(f):
+            try:
+                f.result()
+            except Exception as e:
+                self._awaiting_response = False
+                self.ui.write_log(f"ERR: Komut gönderilemedi - {e}")
+                self.ui.set_state("ERROR")
+        fut.add_done_callback(_on_done)
+
+    async def _watchdog(self):
+        while True:
+            await asyncio.sleep(2.0)
+            if self._paused or not self._awaiting_response:
+                continue
+            if (time.time() - self._awaiting_since) < 18.0:
+                continue
+            if self._watchdog_reconnect_inflight:
+                continue
+            self._watchdog_reconnect_inflight = True
+            self._suppress_next_disconnect_error = True
+            self.ui.write_log("SYS: Yanıt gecikti, bağlantı yenileniyor...")
+            self.ui.set_state("THINKING")
+            try:
+                await self._interrupt_audio()
+                if self.session and hasattr(self.session, "close"):
+                    maybe = self.session.close()
+                    if asyncio.iscoroutine(maybe):
+                        await maybe
+            except Exception:
+                pass
+            finally:
+                self._awaiting_response = False
+                self._watchdog_reconnect_inflight = False
 
     async def _interrupt_audio(self):
         try:
@@ -936,6 +976,7 @@ class JarvisLive:
                 async for response in self.session.receive():
                     if response.data:
                         self.audio_in_queue.put_nowait(response.data)
+                        self._awaiting_response = False
 
                     if response.server_content:
                         sc = response.server_content
@@ -957,6 +998,7 @@ class JarvisLive:
                             if txt:
                                 in_buf.append(txt)
                                 self.ui.mark_user_activity(True)
+                                self._awaiting_response = False
 
                         if sc.turn_complete:
                             self.set_speaking(False)
@@ -969,24 +1011,26 @@ class JarvisLive:
                             full_out = " ".join(out_buf).strip()
                             if full_out:
                                 self.ui.write_log(f"JARVIS: {full_out}")
+                                self._awaiting_response = False
                                 if output_noise_samples:
                                     self.ui.write_debug(
                                         "Kısmen filtrelenen ses transkripti: " + " | ".join(output_noise_samples),
                                         level="WARN",
                                     )
                             elif output_noise:
-                                self.ui.write_log("ERR: JARVIS sesli yanıtını çözümlerken bir hata oluştu.")
+                                self.ui.write_log("SYS: Sesli yanıt kısmen bozuk geldi, tekrar deneyebilirsiniz.")
                                 if output_noise_samples:
                                     self.ui.write_debug(
                                         "Filtrelenen ham transcript: " + " | ".join(output_noise_samples),
                                         level="WARN",
                                     )
-                                self.ui.set_state("ERROR")
+                                self.ui.set_state("LISTENING")
                             out_buf = []
                             output_noise = False
                             output_noise_samples = []
 
                     if response.tool_call:
+                        self._awaiting_response = False
                         fn_responses = []
                         for fc in response.tool_call.function_calls:
                             print(f"[JARVIS] CALL {fc.name}")
@@ -1055,6 +1099,8 @@ class JarvisLive:
 
                     print("[JARVIS] Bağlandı.")
                     self.ui.set_state("LISTENING")
+                    self._awaiting_response = False
+                    self._watchdog_reconnect_inflight = False
                     self.ui.write_log("SYS: JARVIS hazır. Dinliyorum...")
                     if self._pending_voice_announcement:
                         announce_voice = self._pending_voice_announcement
@@ -1078,6 +1124,7 @@ class JarvisLive:
                     tg.create_task(self._listen_audio())
                     tg.create_task(self._receive_audio())
                     tg.create_task(self._play_audio())
+                    tg.create_task(self._watchdog())
 
             except Exception as e:
                 print(f"[JARVIS] Hata: {e}")
@@ -1090,6 +1137,8 @@ class JarvisLive:
                 else:
                     self.ui.write_log(f"ERR: JARVIS bağlantısı kesildi veya internete ulaşılamıyor - {e}")
                     self.ui.set_state("ERROR")
+                self._awaiting_response = False
+                self._watchdog_reconnect_inflight = False
                 print("[JARVIS] 3 saniye sonra yeniden bağlanıyor...")
                 await asyncio.sleep(3)
 
