@@ -22,7 +22,7 @@ CONFIG_PATH = BASE_DIR / "config" / "api_keys.json"
 MEMORY_PATH = BASE_DIR / "memory" / "memory.json"
 
 SYSTEM_NAME = "J.A.R.V.I.S"
-MODEL_BADGE = "VOICE CORE  -  Windows"
+MODEL_BADGE = "SES ÇEKİRDEĞİ  -  Windows"
 ENABLE_MIC_DB_BAR = True
 
 # â”€â”€ Renk paleti â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -790,7 +790,7 @@ class JarvisUI:
 
         self._settings_title = tk.Label(
             self._settings_panel,
-            text="SETTINGS",
+            text="AYARLAR",
             fg=C_PRI,
             bg="#041111",
             font=font_display(11),
@@ -817,7 +817,7 @@ class JarvisUI:
         self._debug_body = tk.Frame(self._settings_panel, bg="#041111")
         self._settings_sfx_label = tk.Label(
             self._settings_body,
-            text="SFX",
+            text="SES EFEKTLERİ",
             fg=C_MID,
             bg="#041111",
             font=font_body_bold(8),
@@ -873,7 +873,7 @@ class JarvisUI:
         for bx, by, sx, sy in [(0, 0, 1, 1), (bw, 0, -1, 1), (0, bh, 1, -1), (bw, bh, -1, -1)]:
             c.create_line(bx, by, bx + sx * bl, by, fill=accent, width=2)
             c.create_line(bx, by, bx, by + sy * bl, fill=accent, width=2)
-        c.create_text(14, 15, text="SYSTEM SETTINGS", fill=C_PRI, font=font_display(10), anchor="w")
+        c.create_text(14, 15, text="SİSTEM AYARLARI", fill=C_PRI, font=font_display(10), anchor="w")
         c.create_text(14, 33, text=MODEL_BADGE, fill="#4f7b78", font=font_body(9), anchor="w")
         c.create_text(bw - 14, bh // 2, text="v" if self._settings_open else ">",
                       fill=accent, font=font_display(14), anchor="e")
@@ -885,8 +885,8 @@ class JarvisUI:
 
     def _draw_settings_tabs(self):
         for key, canvas, label in (
-            ("settings", self._settings_tab_settings, "SETTINGS"),
-            ("debug", self._settings_tab_debug, "DEBUG"),
+            ("settings", self._settings_tab_settings, "AYARLAR"),
+            ("debug", self._settings_tab_debug, "AYIKLA"),
         ):
             active = self._settings_tab == key
             bw = int(canvas["width"])
@@ -932,8 +932,8 @@ class JarvisUI:
         yt_handle = str(cfg.get("youtube_channel_handle", "") or "").strip()
 
         primary = [
-            "Gemini hazir" if gemini_ready else "Gemini API eksik",
-            "YouTube hazir" if yt_key_ready and yt_handle else "YouTube ayari eksik",
+            "Gemini hazır" if gemini_ready else "Gemini API eksik",
+            "YouTube hazır" if yt_key_ready and yt_handle else "YouTube ayarı eksik",
         ]
         if yt_handle:
             handle_text = yt_handle
@@ -988,7 +988,7 @@ class JarvisUI:
         for bx, by, sx, sy in [(0, 0, 1, 1), (bw, 0, -1, 1), (0, bh, 1, -1), (bw, bh, -1, -1)]:
             c.create_line(bx, by, bx + sx * bl, by, fill=C_BLUE, width=1)
             c.create_line(bx, by, bx, by + sy * bl, fill=C_BLUE, width=1)
-        c.create_text(bw // 2, bh // 2, text=" API SETTINGS",
+        c.create_text(bw // 2, bh // 2, text=" API AYARLARI",
                       fill=C_BLUE, font=font_body_bold(10))
 
     def _build_fx_slider(self, parent=None):
@@ -996,7 +996,7 @@ class JarvisUI:
         slider_w = 280
         self._volume_label = tk.Label(
             parent,
-            text=f"FX LEVEL  {int(self.sound.get_volume() * 100)}%",
+            text=f"EFEKT SEVİYESİ  {int(self.sound.get_volume() * 100)}%",
             fg=C_PRI,
             bg=parent.cget("bg"),
             font=font_body_bold(10),
@@ -1032,7 +1032,7 @@ class JarvisUI:
         self._mic_input_level = mic_level
         self._mic_label = tk.Label(
             parent,
-            text=f"MIC LEVEL  {mic_level}%",
+            text=f"MİKROFON SEVİYESİ  {mic_level}%",
             fg=C_BLUE,
             bg=parent.cget("bg"),
             font=font_body_bold(10),
@@ -1062,7 +1062,7 @@ class JarvisUI:
             volume = max(0, min(100, int(float(value))))
         except (TypeError, ValueError):
             return
-        self._volume_label.configure(text=f"FX LEVEL  {volume}%")
+        self._volume_label.configure(text=f"EFEKT SEVİYESİ  {volume}%")
         self.sound.set_volume(volume / 100.0)
 
     def _on_mic_level_change(self, value):
@@ -1071,7 +1071,7 @@ class JarvisUI:
         except (TypeError, ValueError):
             return
         self._mic_input_level = level
-        self._mic_label.configure(text=f"MIC LEVEL  {level}%")
+        self._mic_label.configure(text=f"MİKROFON SEVİYESİ  {level}%")
         save_app_config({"mic_input_level": level})
 
     def get_mic_input_gain(self) -> float:
@@ -1120,14 +1120,14 @@ class JarvisUI:
                 payload["memory"] = json.loads(MEMORY_PATH.read_text(encoding="utf-8"))
 
             Path(target).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-            self.write_log(f"SYS: Yedek alindi: {target}")
+            self.write_log(f"SYS: Yedek alındı: {target}")
         except Exception as exc:
-            self.write_log(f"ERR: Yedek alinamadi - {exc}")
+            self.write_log(f"ERR: Yedek alınamadı - {exc}")
 
     def _restore_data(self):
         try:
             source = filedialog.askopenfilename(
-                title="JARVIS yedegini sec",
+                title="JARVIS yedeğini seç",
                 filetypes=[("JSON", "*.json")],
             )
             if not source:
@@ -1136,16 +1136,16 @@ class JarvisUI:
             config_data = raw.get("config", {})
             memory_data = raw.get("memory", {})
             if not isinstance(config_data, dict) or not isinstance(memory_data, dict):
-                raise ValueError("Gecersiz yedek formati")
+                raise ValueError("Geçersiz yedek formatı")
 
             CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
             MEMORY_PATH.parent.mkdir(parents=True, exist_ok=True)
             CONFIG_PATH.write_text(json.dumps(config_data, ensure_ascii=False, indent=2), encoding="utf-8")
             MEMORY_PATH.write_text(json.dumps(memory_data, ensure_ascii=False, indent=2), encoding="utf-8")
             self._refresh_settings_status()
-            self.write_log("SYS: Yedek geri yüklendi. Degisiklikler aktif.")
+            self.write_log("SYS: Yedek geri yüklendi. Değişiklikler aktif.")
         except Exception as exc:
-            self.write_log(f"ERR: Yedek geri yuklenemedi - {exc}")
+            self.write_log(f"ERR: Yedek geri yüklenemedi - {exc}")
 
     def _close_setup_ui(self):
         if self.setup_frame and self.setup_frame.winfo_exists():
@@ -1202,7 +1202,7 @@ class JarvisUI:
         BH = int(c["height"])
         c.delete("all")
         col  = C_PRI if self._sfx_on else C_MID
-        text = "SFX SFX ON"  if self._sfx_on else "SFX SFX OFF"
+        text = "EFEKT AÇIK" if self._sfx_on else "EFEKT KAPALI"
         bl = 6
         for bx, by, sx, sy in [(0, 0, 1, 1), (BW, 0, -1, 1),
                                 (0, BH, 1, -1), (BW, BH, -1, -1)]:
@@ -1219,7 +1219,7 @@ class JarvisUI:
     def _build_voice_selector(self, parent=None):
         parent = parent or self.root
         self._voice_var = tk.StringVar(value=self._current_voice)
-        self._voice_label = tk.Label(parent, text="VOICE", fg=C_MID, bg=parent.cget("bg"),
+        self._voice_label = tk.Label(parent, text="SES", fg=C_MID, bg=parent.cget("bg"),
                                      font=font_body_bold(8))
 
         self._voice_menu = tk.OptionMenu(parent, self._voice_var, *VOICES,
@@ -1359,7 +1359,7 @@ class JarvisUI:
         self._input_entry.bind("<KP_Enter>", self._on_input_submit)
 
         self._send_btn = tk.Button(
-            self.root, text="SEND >",
+            self.root, text="GÖNDER >",
             command=self._on_input_submit,
             fg=C_ORG, bg=C_PANEL,
             activeforeground=C_BG, activebackground=C_ORG,
@@ -1490,10 +1490,10 @@ class JarvisUI:
     @staticmethod
     def _state_badge_text(state: str) -> str:
         if state == "INITIALISING":
-            return "BAGLANIYOR"
+            return "BAĞLANIYOR"
         if state == "ERROR":
             return "HATA"
-        return "CEVRIMICI"
+        return "ÇEVRİMİÇİ"
 
     # â”€â”€ Log â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def write_log(self, text: str):
@@ -1829,7 +1829,7 @@ class JarvisUI:
 
         cards = [
             ("time", 0.22, "SAAT", C_GOLD),
-            ("weather", 0.20, "HAVA DURUMU  -  ISTANBUL", C_BLUE),
+            ("weather", 0.20, "HAVA DURUMU  -  İSTANBUL", C_BLUE),
             ("system", 0.28, "SISTEM DURUMU", C_PRI),
             ("health", 0.30, "SAGLIK OZETI", C_GREEN),
         ]
@@ -1948,9 +1948,19 @@ class JarvisUI:
         else:
             sc, st = self._state_color(self._jarvis_state), self._jarvis_state
 
-        c.create_text(x0+14, y0+16, text="CONVERSATION", fill=C_PRI,
+        state_text_map = {
+            "LISTENING": "DİNLİYOR",
+            "SPEAKING": "KONUŞUYOR",
+            "THINKING": "DÜŞÜNÜYOR",
+            "PAUSED": "DURAKLATILDI",
+            "MUTED": "SES KAPALI",
+            "ERROR": "HATA",
+            "INITIALISING": "BAĞLANIYOR",
+        }
+        st_text = state_text_map.get(st, st)
+        c.create_text(x0+14, y0+16, text="KONUŞMA", fill=C_PRI,
                       font=font_display(11), anchor="w")
-        c.create_text(x0+pw-pad, y0+16, text=st, fill=sc,
+        c.create_text(x0+pw-pad, y0+16, text=st_text, fill=sc,
                       font=font_body_bold(10), anchor="e")
         c.create_line(x0+pad, y0+28, x0+pw-pad, y0+28, fill=C_DIM)
 
@@ -2185,7 +2195,7 @@ class JarvisUI:
             c.create_rectangle(bar_x, bar_y, bar_x + bar_w, bar_y + bar_h, fill="#041212", outline=C_DIM, width=1)
             fill_w = max(1, int((bar_w - 2) * level))
             c.create_rectangle(bar_x + 1, bar_y + 1, bar_x + 1 + fill_w, bar_y + bar_h - 1, fill=C_GREEN, outline="")
-            c.create_text(self.FCX, bar_y - 8, text=f"MIC {int(level * 100):02d}%", fill=C_MID, font=font_body(9))
+            c.create_text(self.FCX, bar_y - 8, text=f"MİKROFON {int(level * 100):02d}%", fill=C_MID, font=font_body(9))
         c.create_text(self.FCX, self.CTRL_Y - 34, text=SYSTEM_NAME,
                       fill=C_TEXT, font=font_display(18))
         state_label_tr = {
@@ -2212,7 +2222,7 @@ class JarvisUI:
         # Büyük başlık
         c.create_text(W//2, 24, text=SYSTEM_NAME,
                       fill=C_PRI, font=font_display(26))
-        c.create_text(W//2, 52, text="Just A Rather Very Intelligent System",
+        c.create_text(W//2, 52, text="Yalnızca Oldukça Zeki Bir Sistem",
                       fill=C_MID, font=font_body(11))
 
         # Sol: model badge
@@ -2231,9 +2241,9 @@ class JarvisUI:
         c.create_rectangle(0, H-FOOTER_H, W, H, fill="#010a0a", outline="")
         c.create_line(0, H-FOOTER_H, W, H-FOOTER_H, fill=C_DIM, width=1)
         c.create_text(W//2, H-13, fill=C_DIM, font=font_body(9),
-                      text="JARVIS  -  Windows Edition  -  Realtime Voice Core")
+                      text="JARVIS  -  Windows Sürümü  -  Gerçek Zamanlı Ses Çekirdeği")
         c.create_text(W-18, H-13, fill=C_DIM, font=font_body(9),
-                      text="[F4] MUTE  [F5] PAUSE  [ESC] EXIT", anchor="e")
+                      text="[F4] SES KAPAT  [F5] DURAKLAT  [ESC] ÇIKIŞ", anchor="e")
 
     def wait_for_api_key(self):
         while not self._api_key_ready:
@@ -2252,9 +2262,9 @@ class JarvisUI:
 
         title = "* API AYARLARI" if edit_mode else "* İLK KURULUM GEREKLİ"
         subtitle = (
-            "Gemini ve YouTube ayarlarinizi guncelleyin."
+            "Gemini ve YouTube ayarlarınızı güncelleyin."
             if edit_mode else
-            "Gemini API anahtarini girin. YouTube alanlari opsiyoneldir."
+            "Gemini API anahtarını girin. YouTube alanları opsiyoneldir."
         )
         config = load_app_config()
 
@@ -2332,7 +2342,7 @@ class JarvisUI:
         self._api_key_ready = True
         self._refresh_settings_status()
         if was_ready:
-            self.write_log("SYS: API ayarlari guncellendi.")
+            self.write_log("SYS: API ayarları güncellendi.")
         else:
             self.set_state("LISTENING")
             self.write_log("SYS: JARVIS hazır. Dinliyorum...")

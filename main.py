@@ -262,11 +262,11 @@ TOOL_DECLARATIONS = [
     },
     {
         "name": "browser_control",
-        "description": "Tarayıcıda URL açar, Google'da arama yapar veya YouTube'da ilk sonucu doğrudan oynatır.",
+        "description": "Tarayıcıda URL açar, Google'da arama yapar, YouTube'da ilk sonucu doğrudan oynatır veya YouTube Music araması açar.",
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "action": {"type": "STRING", "description": "open_url | search | play_youtube"},
+                "action": {"type": "STRING", "description": "open_url | search | play_youtube | play_youtube_music"},
                 "url":    {"type": "STRING", "description": "Açılacak URL (open_url için)"},
                 "query":  {"type": "STRING", "description": "Arama sorgusu (search veya play_youtube için)"}
             },
@@ -304,7 +304,7 @@ TOOL_DECLARATIONS = [
                 },
                 "provider": {
                     "type": "STRING",
-                    "description": "auto | youtube | spotify | apple_music"
+                    "description": "auto | youtube | youtube_music | spotify | apple_music"
                 },
                 "autoplay": {
                     "type": "BOOLEAN",
@@ -316,7 +316,20 @@ TOOL_DECLARATIONS = [
     },
     {
         "name": "stop_media",
-        "description": "Calan medyayi durdurur veya duraklatir (YouTube, Spotify vb.).",
+        "description": "Calan medyayi durdurur/duraklatir veya tekrar devam ettirir (toggle) (YouTube, Spotify vb.).",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "provider": {
+                    "type": "STRING",
+                    "description": "auto | youtube | spotify | apple_music"
+                }
+            }
+        }
+    },
+    {
+        "name": "resume_media",
+        "description": "Durdurulan medyayi devam ettirir (YouTube, Spotify vb.).",
         "parameters": {
             "type": "OBJECT",
             "properties": {
@@ -524,6 +537,8 @@ class JarvisLive:
         self._awaiting_since = 0.0
         self._watchdog_reconnect_inflight = False
         self._pending_app_alias_for_path = ""
+        self._last_media_action_ts = 0.0
+        self._last_media_provider = "auto"
 
     def _on_pause_toggle(self, paused: bool):
         self._paused = paused
@@ -563,11 +578,96 @@ class JarvisLive:
         elif tool_name == "get_weather":
             self.ui.focus_panel("weather", duration_ms=5600)
 
+    def _infer_media_provider_from_text(self, lowered_text: str) -> str:
+        text = lowered_text or ""
+        if any(k in text for k in ("youtube music", "youtube müzik", "yt music", "ytmusic")):
+            return "youtube_music"
+        if any(k in text for k in ("youtube", "youtu be", "yt")):
+            return "youtube"
+        if "spotify" in text:
+            return "spotify"
+        return self._last_media_provider or "auto"
+
     def _on_text_command(self, text: str):
         if self._paused:
             return
         self.ui.write_log(f"Siz: {text}")
         lowered = self._normalize_turkish_transcript(text).lower()
+        dense = lowered.replace(" ", "")
+        # Tek kelimelik/çok kısa medya kontrol komutlarını doğrudan yakala.
+        compact = " ".join(lowered.split())
+        hard_pause_cmds = {"durdur", "duraklat", "müziği durdur", "muzigi durdur", "müziği kapat", "muzigi kapat"}
+        hard_resume_cmds = {"devam et", "devam", "müziği devam ettir", "muzigi devam ettir", "müziği tekrar aç", "muzigi tekrar ac"}
+        if compact in hard_pause_cmds or compact in hard_resume_cmds:
+            try:
+                provider = self._last_media_provider or "auto"
+                result = stop_media(provider)
+                self.ui.write_log(f"JARVIS: {result}")
+                self.ui.set_state("LISTENING")
+                self._last_media_action_ts = time.time()
+                return
+            except Exception as e:
+                self.ui.write_log(f"ERR: Medya kontrolü başarısız - {e}")
+                self.ui.set_state("ERROR")
+                return
+
+        # Cümle içinde dağınık/bozuk gelse bile "durdur/devam" niyetini zorla media toggle'a bağla.
+        media_context = any(k in lowered for k in ("müzik", "muzik", "şarkı", "sarki", "youtube", "spotify", "yt"))
+        has_resume_intent = any(k in lowered for k in ("devam et", "devam ettir", "tekrar aç", "yeniden aç"))
+        has_pause_intent = any(k in lowered for k in ("durdur", "duraklat", "kapat"))
+        # Bozuk boşluklu halleri için yoğun metin kontrolü
+        has_resume_dense = any(k in dense for k in ("devamet", "devamettir", "tekraraç", "yenidenaç"))
+        has_pause_dense = any(k in dense for k in ("durdur", "duraklat", "kapat"))
+        recent_media_context = (time.time() - self._last_media_action_ts) <= 90.0
+        if (media_context or recent_media_context) and (has_resume_intent or has_pause_intent or has_resume_dense or has_pause_dense):
+            try:
+                provider = self._infer_media_provider_from_text(lowered)
+                result = stop_media(provider)
+                self.ui.write_log(f"JARVIS: {result}")
+                self.ui.set_state("LISTENING")
+                self._last_media_action_ts = time.time()
+                return
+            except Exception as e:
+                self.ui.write_log(f"ERR: Medya kontrolü başarısız - {e}")
+                self.ui.set_state("ERROR")
+                return
+        ytm_tokens = ("youtube music", "youtube müzik", "yt music", "ytmusic", "müzikte", "muzikte")
+        play_tokens = ("aç", "ac", "çal", "cal", "oynat")
+        if any(tok in lowered for tok in ytm_tokens) and any(tok in lowered for tok in play_tokens):
+            query = lowered
+            for tok in (
+                "youtube music",
+                "youtube müzik",
+                "yt music",
+                "ytmusic",
+                "youtube",
+                "müzikte",
+                "muzikte",
+                "müzik",
+                "muzik",
+                "açar mısın",
+                "acar misin",
+                "aç",
+                "ac",
+                "çal",
+                "cal",
+                "oynat",
+            ):
+                query = query.replace(tok, " ")
+            query = " ".join(query.split()).strip(" .,!?:;")
+            if not query:
+                query = "mix"
+            try:
+                result = play_media(query=query, provider="youtube_music", autoplay=True)
+                self.ui.write_log(f"JARVIS: {result}")
+                self.ui.set_state("LISTENING")
+                self._last_media_action_ts = time.time()
+                self._last_media_provider = "youtube_music"
+                return
+            except Exception as e:
+                self.ui.write_log(f"ERR: YouTube Music açılamadı - {e}")
+                self.ui.set_state("ERROR")
+                return
         quick_media_resume_phrases = (
             "müziği tekrar aç",
             "muzigi tekrar ac",
@@ -575,6 +675,8 @@ class JarvisLive:
             "muzigi ac",
             "müziği devam ettir",
             "muzigi devam ettir",
+            "devam et",
+            "devam",
             "devam etsin",
             "şarkıyı devam ettir",
             "sarkiyi devam ettir",
@@ -589,9 +691,11 @@ class JarvisLive:
         )
         if any(p in lowered for p in quick_media_resume_phrases):
             try:
-                result = stop_media("auto")
+                provider = self._infer_media_provider_from_text(lowered)
+                result = stop_media(provider)
                 self.ui.write_log(f"JARVIS: {result}")
                 self.ui.set_state("LISTENING")
+                self._last_media_action_ts = time.time()
                 return
             except Exception as e:
                 self.ui.write_log(f"ERR: Medya devam ettirilemedi - {e}")
@@ -599,9 +703,11 @@ class JarvisLive:
                 return
         if any(p in lowered for p in quick_media_pause_phrases):
             try:
-                result = stop_media("auto")
+                provider = self._infer_media_provider_from_text(lowered)
+                result = stop_media(provider)
                 self.ui.write_log(f"JARVIS: {result}")
                 self.ui.set_state("LISTENING")
+                self._last_media_action_ts = time.time()
                 return
             except Exception as e:
                 self.ui.write_log(f"ERR: Medya durdurulamadı - {e}")
@@ -959,22 +1065,37 @@ class JarvisLive:
                     result = f"{result}\nYol kaydedildi: '{alias}' artık bu komutla açılacak."
 
             elif name == "play_media":
+                provider = str(args.get("provider", "auto") or "auto").strip().lower()
                 r = await loop.run_in_executor(
                     None,
                     lambda: play_media(
                         args.get("query", ""),
-                        args.get("provider", "auto"),
+                        provider,
                         bool(args.get("autoplay", True)),
                     ),
                 )
                 result = r or "Medya oynatma başlatıldı."
+                self._last_media_action_ts = time.time()
+                if provider and provider != "auto":
+                    self._last_media_provider = provider
 
             elif name == "stop_media":
+                provider = str(args.get("provider", "auto") or "auto").strip().lower()
                 r = await loop.run_in_executor(
                     None,
-                    lambda: stop_media(args.get("provider", "auto")),
+                    lambda: stop_media(provider),
                 )
                 result = r or "Medya durdurma komutu gönderildi."
+                self._last_media_action_ts = time.time()
+
+            elif name == "resume_media":
+                provider = str(args.get("provider", "auto") or "auto").strip().lower()
+                r = await loop.run_in_executor(
+                    None,
+                    lambda: stop_media(provider),
+                )
+                result = r or "Medya devam ettirme komutu gönderildi."
+                self._last_media_action_ts = time.time()
 
             elif name == "get_youtube_channel_report":
                 r = await loop.run_in_executor(

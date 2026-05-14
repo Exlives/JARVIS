@@ -25,6 +25,7 @@ APP_ALIASES = {
     "finder": "explorer",
     "spotify": "spotify:",
     "youtube music": "https://music.youtube.com",
+    "youtube müzik": "https://music.youtube.com",
     "yt music": "https://music.youtube.com",
     "ytmusic": "https://music.youtube.com",
     "vscode": "code",

@@ -14,6 +14,23 @@ import os
 import requests
 
 
+def _tr_weather_desc(desc: str) -> str:
+    text = (desc or "").strip().lower()
+    mapping = {
+        "light rain shower": "hafif sağanak yağmur",
+        "patchy rain nearby": "yakınlarda yer yer yağmur",
+        "partly cloudy": "parçalı bulutlu",
+        "cloudy": "bulutlu",
+        "overcast": "kapalı",
+        "sunny": "güneşli",
+        "clear": "açık",
+        "mist": "puslu",
+        "fog": "sisli",
+        "thunderstorm": "gök gürültülü fırtına",
+    }
+    return mapping.get(text, text)
+
+
 def get_weather_summary(location: str | None = None) -> str:
     target = (location or os.environ.get("JARVIS_WEATHER_LOCATION") or "Istanbul").strip()
     try:
@@ -35,7 +52,7 @@ def get_weather_summary(location: str | None = None) -> str:
         if temp_c:
             parts.append(f"{temp_c} derece")
         if weather_desc:
-            parts.append(weather_desc.lower())
+            parts.append(_tr_weather_desc(weather_desc))
         if feels_like and feels_like != temp_c:
             parts.append(f"hissedilen {feels_like} derece")
         if humidity:

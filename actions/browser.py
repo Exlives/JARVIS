@@ -74,4 +74,28 @@ def browser_control(action: str, url: str = None, query: str = None) -> str:
         _open(watch_url)
         return f"YouTube'da oynatiliyor: {query}"
 
+    if action in ("play_youtube_music", "youtube_music_play", "ytmusic_play"):
+        if not query:
+            return "YouTube Music icin arama sorgusu belirtilmedi."
+        try:
+            video_id = _find_first_youtube_video(query)
+        except Exception as exc:
+            encoded = urllib.parse.quote_plus(query)
+            fallback_url = f"https://music.youtube.com/search?q={encoded}"
+            _open(fallback_url)
+            return (
+                f"YouTube Music ilk sonucu alinamadi ({exc}). "
+                f"Arama sonuclari acildi: {query}"
+            )
+
+        if not video_id:
+            encoded = urllib.parse.quote_plus(query)
+            fallback_url = f"https://music.youtube.com/search?q={encoded}"
+            _open(fallback_url)
+            return f"YouTube Music'te dogrudan video bulunamadi. Arama sonuclari acildi: {query}"
+
+        watch_url = f"https://music.youtube.com/watch?v={video_id}&autoplay=1"
+        _open(watch_url)
+        return f"YouTube Music'te oynatiliyor: {query}"
+
     return f"Bilinmeyen eylem: {action}"
