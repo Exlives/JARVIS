@@ -1,5 +1,5 @@
 ﻿"""
-Kalici bellek - JSON dosyasina kaydedilir.
+Kalıcı bellek - JSON dosyasına kaydedilir.
 Exlives
 """
 
@@ -94,7 +94,7 @@ def _entry_matches(needle: str, category: str, item_key: str, item_value) -> boo
 def delete_memory(category: str = "", key: str = "", match_text: str = "") -> str:
     mem = load_memory()
     if not mem:
-        return "Hafizada silinecek bir kayit yok."
+        return "Hafızada silinecek bir kayıt yok."
 
     category = (category or "").strip()
     key = (key or "").strip()
@@ -107,19 +107,19 @@ def delete_memory(category: str = "", key: str = "", match_text: str = "") -> st
             if not bucket:
                 mem.pop(category, None)
             _write_memory(mem)
-            return f"{category}/{key} hafizadan kaldirildi."
-        return "Bu hafiza kaydini bulamadim."
+            return f"{category}/{key} hafızadan kaldırıldı."
+        return "Bu hafıza kaydını bulamadım."
 
     needle = _normalize_text(match_text or key)
     if not needle:
-        return "Silmek icin category/key veya match_text gerekli."
+        return "Silmek için category/key veya match_text gerekli."
 
     for cat, bucket in list(mem.items()):
         if not isinstance(bucket, dict):
             if _entry_matches(needle, cat, cat, bucket):
                 del mem[cat]
                 _write_memory(mem)
-                return f"{cat} hafizadan kaldirildi."
+                return f"{cat} hafızadan kaldırıldı."
             continue
 
         for item_key, item_value in list(bucket.items()):
@@ -128,15 +128,15 @@ def delete_memory(category: str = "", key: str = "", match_text: str = "") -> st
                 if not bucket:
                     mem.pop(cat, None)
                 _write_memory(mem)
-                return f"{cat}/{item_key} hafizadan kaldirildi."
+                return f"{cat}/{item_key} hafızadan kaldırıldı."
 
-    return "Eslestigim bir hafiza kaydi bulamadim."
+    return "Eşleştiğim bir hafıza kaydı bulamadım."
 
 
 def format_memory_for_prompt(memory: dict) -> str:
     if not memory:
         return ""
-    lines = ["[KULLANICI HAKKINDA BILGILER]"]
+    lines = ["[KULLANICI HAKKINDA BİLGİLER]"]
     for category, items in memory.items():
         if isinstance(items, dict):
             for key, val in items.items():

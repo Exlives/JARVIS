@@ -1,10 +1,10 @@
 ﻿"""
-Basit hava durumu ozeti - uzaktaki bir servis uzerinden calisir.
+Basit hava durumu özeti - uzaktaki bir servis üzerinden çalışır.
 Exlives
 
-Varsayilan konum:
-- JARVIS_WEATHER_LOCATION env varsa onu kullanir
-- yoksa Istanbul varsayilir
+Varsayılan konum:
+- JARVIS_WEATHER_LOCATION env varsa onu kullanır
+- yoksa İstanbul varsayılır
 """
 
 from __future__ import annotations
@@ -39,14 +39,14 @@ def get_weather_summary(location: str | None = None) -> str:
         if feels_like and feels_like != temp_c:
             parts.append(f"hissedilen {feels_like} derece")
         if humidity:
-            parts.append(f"nem yuzde {humidity}")
+            parts.append(f"nem yüzde {humidity}")
 
         if not parts:
-            return "Hava durumu bilgisi su anda alinamadi."
+            return "Hava durumu bilgisi şu anda alınamadı."
 
-        return f"{target} icin hava durumu: " + ", ".join(parts) + "."
+        return f"{target} için hava durumu: " + ", ".join(parts) + "."
     except Exception:
-        return "Hava durumu bilgisi su anda alinamadi."
+        return "Hava durumu bilgisi şu anda alınamadı."
 
 
 
