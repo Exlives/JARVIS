@@ -1326,9 +1326,14 @@ class JarvisLive:
 
         except Exception as e:
             msg = str(e or "")
-            benign_close = ("1000 None" in msg) or ("ConnectionClosedOK" in msg)
+            benign_close = (
+                ("1000 None" in msg)
+                or ("ConnectionClosedOK" in msg)
+                or ("1011 None" in msg)
+                or ("Internal error encountered" in msg)
+            )
             if benign_close:
-                print("[JARVIS] Alım akışı normal şekilde kapandı (1000). Yeniden bağlanılacak.")
+                print("[JARVIS] Alım akışı geçici olarak kapandı. Yeniden bağlanılacak.")
                 raise RuntimeError("SESSION_CLOSED_OK")
             print(f"[JARVIS] Alım hatası: {e}")
             traceback.print_exc()
@@ -1430,6 +1435,8 @@ class JarvisLive:
                     "SESSION_CLOSED_OK" in err_msg
                     or "1000 None" in err_msg
                     or "ConnectionClosedOK" in err_msg
+                    or "1011 None" in err_msg
+                    or "Internal error encountered" in err_msg
                 )
                 print(f"[JARVIS] Hata: {e}")
                 if not benign_close:
