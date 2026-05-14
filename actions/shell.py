@@ -47,16 +47,32 @@ def shell_run(command: str, timeout: int = 30) -> str:
             command,
             shell=True,
             capture_output=True,
-            text=True,
             timeout=timeout,
         )
-        output = (result.stdout + result.stderr).strip()
+        stdout = result.stdout or b""
+        stderr = result.stderr or b""
+        if isinstance(stdout, str):
+            stdout_text = stdout
+        else:
+            try:
+                stdout_text = stdout.decode("utf-8", errors="replace")
+            except Exception:
+                stdout_text = stdout.decode("cp1254", errors="replace")
+        if isinstance(stderr, str):
+            stderr_text = stderr
+        else:
+            try:
+                stderr_text = stderr.decode("utf-8", errors="replace")
+            except Exception:
+                stderr_text = stderr.decode("cp1254", errors="replace")
+
+        output = (stdout_text + stderr_text).strip()
         if not output:
-            return "Komut basariyla calisti (cikti yok)."
+            return "Komut başarıyla çalıştı (çıktı yok)."
         if len(output) > 800:
-            output = output[:800] + "\n... (cikti kisaltildi)"
+            output = output[:800] + "\n... (çıktı kısaltıldı)"
         return output
     except subprocess.TimeoutExpired:
-        return f"Komut zaman asimina ugradi ({timeout}s)."
+        return f"Komut zaman aşımına uğradı ({timeout}s)."
     except Exception as exc:
         return f"Hata: {exc}"

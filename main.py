@@ -1040,6 +1040,11 @@ class JarvisLive:
                             function_responses=fn_responses)
 
         except Exception as e:
+            msg = str(e or "")
+            benign_close = ("1000 None" in msg) or ("ConnectionClosedOK" in msg)
+            if benign_close:
+                print("[JARVIS] Alım akışı normal şekilde kapandı (1000). Yeniden bağlanılacak.")
+                raise RuntimeError("SESSION_CLOSED_OK")
             print(f"[JARVIS] Alım hatası: {e}")
             traceback.print_exc()
             raise
@@ -1127,10 +1132,20 @@ class JarvisLive:
                     tg.create_task(self._watchdog())
 
             except Exception as e:
+                err_msg = str(e or "")
+                benign_close = (
+                    "SESSION_CLOSED_OK" in err_msg
+                    or "1000 None" in err_msg
+                    or "ConnectionClosedOK" in err_msg
+                )
                 print(f"[JARVIS] Hata: {e}")
-                traceback.print_exc()
+                if not benign_close:
+                    traceback.print_exc()
                 self.set_speaking(False)
-                if self._suppress_next_disconnect_error:
+                if benign_close:
+                    self.ui.write_log("SYS: Oturum yenileniyor...")
+                    self.ui.set_state("THINKING")
+                elif self._suppress_next_disconnect_error:
                     self._suppress_next_disconnect_error = False
                     self.ui.write_log("SYS: Ses profili güncellendi. Yeniden bağlanıyor...")
                     self.ui.set_state("THINKING")
