@@ -28,7 +28,7 @@ from actions.reminders import get_reminders, add_reminder
 from actions.browser   import browser_control
 from actions.shell     import shell_run
 from actions.whatsapp  import send_whatsapp_message, save_whatsapp_contact
-from actions.media     import play_media
+from actions.media     import play_media, stop_media
 from actions.weather   import get_weather_summary
 from actions.screen_vision import analyze_screen
 from actions.youtube_stats import get_youtube_channel_report
@@ -315,6 +315,19 @@ TOOL_DECLARATIONS = [
         }
     },
     {
+        "name": "stop_media",
+        "description": "Calan medyayi durdurur veya duraklatir (YouTube, Spotify vb.).",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "provider": {
+                    "type": "STRING",
+                    "description": "auto | youtube | spotify | apple_music"
+                }
+            }
+        }
+    },
+    {
         "name": "get_youtube_channel_report",
         "description": (
             "YouTube kanalinin public istatistiklerini ve son videolarin performansini raporlar. "
@@ -554,6 +567,46 @@ class JarvisLive:
         if self._paused:
             return
         self.ui.write_log(f"Siz: {text}")
+        lowered = self._normalize_turkish_transcript(text).lower()
+        quick_media_resume_phrases = (
+            "müziği tekrar aç",
+            "muzigi tekrar ac",
+            "müziği aç",
+            "muzigi ac",
+            "müziği devam ettir",
+            "muzigi devam ettir",
+            "devam etsin",
+            "şarkıyı devam ettir",
+            "sarkiyi devam ettir",
+        )
+        quick_media_pause_phrases = (
+            "müziği durdur",
+            "muzigi durdur",
+            "müziği kapat",
+            "muzigi kapat",
+            "müziği duraklat",
+            "muzigi duraklat",
+        )
+        if any(p in lowered for p in quick_media_resume_phrases):
+            try:
+                result = stop_media("auto")
+                self.ui.write_log(f"JARVIS: {result}")
+                self.ui.set_state("LISTENING")
+                return
+            except Exception as e:
+                self.ui.write_log(f"ERR: Medya devam ettirilemedi - {e}")
+                self.ui.set_state("ERROR")
+                return
+        if any(p in lowered for p in quick_media_pause_phrases):
+            try:
+                result = stop_media("auto")
+                self.ui.write_log(f"JARVIS: {result}")
+                self.ui.set_state("LISTENING")
+                return
+            except Exception as e:
+                self.ui.write_log(f"ERR: Medya durdurulamadı - {e}")
+                self.ui.set_state("ERROR")
+                return
         if not self._loop or not self.session:
             self.ui.write_log("ERR: JARVIS bağlantısı henüz hazır değil.")
             return
@@ -915,6 +968,13 @@ class JarvisLive:
                     ),
                 )
                 result = r or "Medya oynatma başlatıldı."
+
+            elif name == "stop_media":
+                r = await loop.run_in_executor(
+                    None,
+                    lambda: stop_media(args.get("provider", "auto")),
+                )
+                result = r or "Medya durdurma komutu gönderildi."
 
             elif name == "get_youtube_channel_report":
                 r = await loop.run_in_executor(

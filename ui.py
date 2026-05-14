@@ -544,6 +544,7 @@ class JarvisUI:
         self._settings_open = False
         self._settings_tab = "settings"
         self._debug_entries = deque(maxlen=160)
+        self._render_fail_count = 0
         self._startup_sfx_played = False
         self._settings_geometry = {
             "btn_x": 14,
@@ -762,7 +763,7 @@ class JarvisUI:
                                 (0, BH, 1, -1), (BW, BH, -1, -1)]:
             c.create_line(bx, by, bx+sx*bl, by, fill=C_RED, width=2)
             c.create_line(bx, by, bx, by+sy*bl, fill=C_RED, width=2)
-        c.create_text(BW//2, BH//2, text="  SHUTDOWN",
+        c.create_text(BW//2, BH//2, text="  KAPAT",
                       fill=C_RED, font=font_display(11))
 
     def _build_settings_panel(self):
@@ -1251,9 +1252,9 @@ class JarvisUI:
         bh = int(c["height"])
         c.delete("all")
         if self.muted:
-            col, icon, lbl = C_MUTED, "", " MUTED"
+            col, icon, lbl = C_MUTED, "", " SES KAPALI"
         else:
-            col, icon, lbl = C_GREEN, "", " LIVE"
+            col, icon, lbl = C_GREEN, "", " CANLI"
         bl = 6
         for bx, by, sx, sy in [(0, 0, 1, 1), (bw, 0, -1, 1),
                                 (0, bh, 1, -1), (bw, bh, -1, -1)]:
@@ -1274,9 +1275,9 @@ class JarvisUI:
         bh = int(c["height"])
         c.delete("all")
         if self.paused:
-            col, text = C_GOLD, "RESUME"
+            col, text = C_GOLD, "DEVAM ET"
         else:
-            col, text = C_BLUE, "PAUSE"
+            col, text = C_BLUE, "DURAKLATILDI"
         bl = 6
         for bx, by, sx, sy in [(0, 0, 1, 1), (bw, 0, -1, 1),
                                (0, bh, 1, -1), (bw, bh, -1, -1)]:
@@ -1489,10 +1490,10 @@ class JarvisUI:
     @staticmethod
     def _state_badge_text(state: str) -> str:
         if state == "INITIALISING":
-            return "CONNECTING"
+            return "BAGLANIYOR"
         if state == "ERROR":
-            return "ERROR"
-        return "ONLINE"
+            return "HATA"
+        return "CEVRIMICI"
 
     # â”€â”€ Log â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def write_log(self, text: str):
@@ -1622,7 +1623,17 @@ class JarvisUI:
         if t % 38 == 0:
             self.status_blink = not self.status_blink
 
-        self._draw()
+        try:
+            self._draw()
+            self._render_fail_count = 0
+        except Exception as exc:
+            self._render_fail_count += 1
+            self.write_debug(f"Render hatasi: {exc}", level="ERROR")
+            # Cizim bir frame'de patlarsa UI tamamen bos kalmasin; olculeri yenileyip devam et.
+            try:
+                self._resize_surface(self.root.winfo_width(), self.root.winfo_height())
+            except Exception:
+                pass
         self.root.after(33, self._animate)
 
     # â”€â”€ Yardımcı â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
@@ -1817,10 +1828,10 @@ class JarvisUI:
         bw = pw - 2 * pad
 
         cards = [
-            ("time", 0.22, "TIME", C_GOLD),
-            ("weather", 0.20, "WEATHER  -  ISTANBUL", C_BLUE),
-            ("system", 0.28, "SYSTEM STATUS", C_PRI),
-            ("health", 0.30, "HEALTH SUMMARY", C_GREEN),
+            ("time", 0.22, "SAAT", C_GOLD),
+            ("weather", 0.20, "HAVA DURUMU  -  ISTANBUL", C_BLUE),
+            ("system", 0.28, "SISTEM DURUMU", C_PRI),
+            ("health", 0.30, "SAGLIK OZETI", C_GREEN),
         ]
         any_focus_active = bool(self._panel_focus) and (self._panel_focus_until > time.time())
         weights = []
@@ -1859,7 +1870,17 @@ class JarvisUI:
                               fill=muted_label, font=font_body_bold(13), anchor="w")
                 c.create_text(section_x+section_pad, current_y+118, text=time.strftime("%d %B %Y").upper(),
                               fill=muted_gold, font=font_body_bold(11), anchor="w")
-                c.create_text(section_x+section_pad, current_y+138, text=time.strftime("%A").upper(),
+                day_map = {
+                    "MONDAY": "PAZARTESI",
+                    "TUESDAY": "SALI",
+                    "WEDNESDAY": "CARSAMBA",
+                    "THURSDAY": "PERSEMBE",
+                    "FRIDAY": "CUMA",
+                    "SATURDAY": "CUMARTESI",
+                    "SUNDAY": "PAZAR",
+                }
+                day_text = day_map.get(time.strftime("%A").upper(), time.strftime("%A").upper())
+                c.create_text(section_x+section_pad, current_y+138, text=day_text,
                               fill=muted_text, font=font_body(10), anchor="w")
 
             elif section == "weather":
@@ -1878,7 +1899,7 @@ class JarvisUI:
                 uptime = int(time.time() - self._started_at)
                 up_min, up_sec = divmod(uptime, 60)
                 up_hr, up_min = divmod(up_min, 60)
-                c.create_text(section_x+section_pad, cy, text=f"UPTIME  {up_hr:02d}:{up_min:02d}:{up_sec:02d}",
+                c.create_text(section_x+section_pad, cy, text=f"CALISMA SURESI  {up_hr:02d}:{up_min:02d}:{up_sec:02d}",
                               fill=muted_label, font=font_body_bold(9), anchor="w")
                 cy += 22
                 for label, key, unit in [("CPU", "cpu", "%"), ("RAM", "ram", "%"), ("DISK", "disk", "%"), ("BATTERY", "battery", "%")]:
@@ -2167,7 +2188,16 @@ class JarvisUI:
             c.create_text(self.FCX, bar_y - 8, text=f"MIC {int(level * 100):02d}%", fill=C_MID, font=font_body(9))
         c.create_text(self.FCX, self.CTRL_Y - 34, text=SYSTEM_NAME,
                       fill=C_TEXT, font=font_display(18))
-        c.create_text(self.FCX, self.CTRL_Y - 12, text=f"* {state_label.title()}",
+        state_label_tr = {
+            "LISTENING": "Canlı",
+            "SPEAKING": "Konuşuyor",
+            "THINKING": "Düşünüyor",
+            "PAUSED": "Duraklatıldı",
+            "MUTED": "Ses Kapalı",
+            "ERROR": "Hata",
+            "INITIALISING": "Bağlanıyor",
+        }.get(state_label, state_label.title())
+        c.create_text(self.FCX, self.CTRL_Y - 12, text=f"* {state_label_tr}",
                       fill=state_col, font=font_body_bold(11))
 
         # â”€â”€ HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
