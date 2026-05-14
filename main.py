@@ -12,6 +12,7 @@ import traceback
 import os
 import re
 import time
+import random
 from pathlib import Path
 
 import pyaudio  # type: ignore[reportMissingModuleSource]
@@ -614,9 +615,10 @@ class JarvisLive:
             return
         self._shutdown_confirm_pending_until = time.time() + 25.0
         self._shutdown_close_scheduled = False
-        self._suppress_model_output_until = 0.0
-        self._ignore_model_audio_until = 0.0
-        msg = "Kendimi kapatıyorum, onaylıyor musun?"
+        self._suppress_model_output_until = time.time() + 5.0
+        self._ignore_model_audio_until = time.time() + 5.0
+        self._ignore_mic_until = time.time() + 2.8
+        msg = "Tamam, kapatıyorum. Onaylıyor musun?"
         self.ui.write_log(f"JARVIS: {msg}")
         # Onay akışı tercihini kalıcı hafızada tut.
         try:
@@ -624,7 +626,7 @@ class JarvisLive:
                 {
                     "preferences": {
                         "shutdown_confirm_flow": {
-                            "value": "Kapatmadan önce 'Kendimi kapatıyorum, onaylıyor musun?' diye sor."
+                            "value": "Kapatmadan önce 'Tamam, kapatıyorum. Onaylıyor musun?' diye sor."
                         }
                     }
                 }
@@ -636,46 +638,28 @@ class JarvisLive:
                 asyncio.run_coroutine_threadsafe(self._interrupt_audio(), self._loop)
             except Exception:
                 pass
-        # Kapat düğmesinde yerel TTS yok: sadece model (AI sesi) konuşsun.
-        if source in {"button", "wm_close", "escape"} and self._loop:
+        if not self.ui.muted:
             try:
-                asyncio.run_coroutine_threadsafe(
-                    self._ask_shutdown_confirmation_via_ai(),
-                    self._loop,
-                )
+                tts_actions.speak_text(msg)
             except Exception:
                 pass
-
-    async def _ask_shutdown_confirmation_via_ai(self):
-        if not self.session:
-            return
-        try:
-            await self.session.send_client_content(
-                turns={
-                    "parts": [
-                        {
-                            "text": "Sadece şu cümleyi söyle: 'Kendimi kapatıyorum, onaylıyor musun?'"
-                        }
-                    ]
-                },
-                turn_complete=True,
-            )
-        except Exception:
-            pass
 
     async def _shutdown_with_farewell(self, source: str):
         if self._shutdown_close_scheduled:
             return
         self._shutdown_close_scheduled = True
         self._shutdown_confirm_pending_until = 0.0
-        self.ui.write_log("JARVIS: Onay alındı, güle güle.")
+        farewell = random.choice(
+            [
+                "Tamam, kapatıyorum. Güle güle.",
+                "Tamamdır, görüşürüz.",
+            ]
+        )
+        self.ui.write_log(f"JARVIS: {farewell}")
         try:
-            if self.session:
-                await self.session.send_client_content(
-                    turns={"parts": [{"text": "Sadece şu cümleyi söyle: 'Güle güle.'"}]},
-                    turn_complete=True,
-                )
-                await asyncio.sleep(0.9)
+            if not self.ui.muted:
+                await asyncio.get_event_loop().run_in_executor(None, lambda: tts_actions.speak_text(farewell))
+                await asyncio.sleep(0.2)
         except Exception:
             pass
         self.ui.shutdown_confirmed(source=source)
