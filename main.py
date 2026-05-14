@@ -32,6 +32,7 @@ from actions.media     import play_media, stop_media
 from actions.weather   import get_weather_summary
 from actions.screen_vision import analyze_screen
 from actions.youtube_stats import get_youtube_channel_report
+from actions.health import get_health_data, get_welcome_health_summary
 from actions import tts as tts_actions
 
 # Paths
@@ -371,6 +372,22 @@ TOOL_DECLARATIONS = [
                 }
             },
             "required": ["query"]
+        }
+    },
+    {
+        "name": "get_health_data",
+        "description": (
+            "Sağlık özetini getirir. Günlük sağlık verisi, uyku, adım, kalp, enerji veya benzeri "
+            "sağlık sorularında kullan."
+        ),
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "query": {
+                    "type": "STRING",
+                    "description": "all | summary | sleep | steps | heart | energy veya doğal dil sorgusu"
+                }
+            }
         }
     },
     {
@@ -1118,6 +1135,18 @@ class JarvisLive:
                 )
                 result = r or "Ekran analizi tamamlandı."
 
+            elif name == "get_health_data":
+                query = str(args.get("query", "all") or "all")
+                r = await loop.run_in_executor(
+                    None,
+                    lambda: get_health_data(query),
+                )
+                result = r or "Sağlık verisi alınamadı."
+                try:
+                    self.ui.update_health_card(result, focus_ms=6000)
+                except Exception:
+                    pass
+
             elif name == "send_whatsapp_message":
                 r = await loop.run_in_executor(
                     None,
@@ -1268,7 +1297,13 @@ class JarvisLive:
                                         level="WARN",
                                     )
                             elif output_noise:
-                                self.ui.write_log("SYS: Sesli yanıt kısmen bozuk geldi, tekrar deneyebilirsiniz.")
+                                fallback_msg = "Anlayamadım, tekrar eder misiniz?"
+                                self.ui.write_log(f"JARVIS: {fallback_msg}")
+                                if not self.ui.muted:
+                                    try:
+                                        tts_actions.speak_text(fallback_msg)
+                                    except Exception:
+                                        pass
                                 if output_noise_samples:
                                     self.ui.write_debug(
                                         "Filtrelenen ham transcript: " + " | ".join(output_noise_samples),
@@ -1357,6 +1392,14 @@ class JarvisLive:
                     self._awaiting_response = False
                     self._watchdog_reconnect_inflight = False
                     self.ui.write_log("SYS: JARVIS hazır. Dinliyorum...")
+                    try:
+                        summary = await asyncio.get_event_loop().run_in_executor(
+                            None, get_welcome_health_summary
+                        )
+                        if summary:
+                            self.ui.update_health_card(summary, focus_ms=4500)
+                    except Exception:
+                        pass
                     if self._pending_voice_announcement:
                         announce_voice = self._pending_voice_announcement
                         self._pending_voice_announcement = ""

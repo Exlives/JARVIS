@@ -6,6 +6,7 @@ Exlives
 
 import os, time, math, random, signal, threading
 import subprocess
+import textwrap
 import tkinter as tk
 from tkinter import filedialog
 from collections import deque
@@ -504,6 +505,9 @@ class JarvisUI:
         self._window_geometry = _geo
         self._normal_size = (self.W, self.H)
         self._fullscreen = True
+        self._mini_mode = False
+        self._prev_fullscreen = True
+        self._prev_geometry = self._window_geometry
 
         self._set_layout_metrics(self.W, self.H)
 
@@ -649,6 +653,7 @@ class JarvisUI:
         self._build_mute_button()
         self._build_pause_button()
         self._build_shutdown_button()
+        self._build_background_button()
         self._build_settings_panel()
         self._build_voice_selector(self._settings_body)
         self._build_sfx_button(self._settings_body)
@@ -700,6 +705,31 @@ class JarvisUI:
     def _set_layout_metrics(self, width: int, height: int):
         self.W = int(width)
         self.H = int(height)
+        if self._mini_mode:
+            self.LEFT_W = 0
+            self.RIGHT_W = 0
+            center_w = self.W
+            orb_area_h = self.H - CONTROL_H - 20
+            self.FCX = self.W // 2
+            self.FCY = max(98, orb_area_h // 2)
+            self.FACE = min(int(orb_area_h * 0.80), int(center_w * 0.58), 290)
+
+            self.CENTER_X0 = 0
+            self.CENTER_X1 = self.W
+            self.CTRL_X = 10
+            self.CTRL_Y = self.H - 124
+            self.CTRL_W = self.W - 20
+            self.CHAT_PANEL_X = 0
+            self.CHAT_PANEL_Y = 0
+            self.CHAT_PANEL_W = 0
+            self.CHAT_PANEL_H = 0
+            self.CHAT_X = 0
+            self.CHAT_Y = 0
+            self.CHAT_W = 0
+            self.CHAT_H = 0
+            self.CHAT_INPUT_Y = 0
+            return
+
         self.LEFT_W = min(LEFT_W_T, int(self.W * 0.23))
         self.RIGHT_W = min(RIGHT_W_T, int(self.W * 0.25))
         center_w = self.W - self.LEFT_W - self.RIGHT_W
@@ -755,7 +785,8 @@ class JarvisUI:
 
     def _draw_shutdown_button(self):
         c = self._shutdown_canvas
-        BW, BH = 140, 36
+        BW = int(c["width"])
+        BH = int(c["height"])
         c.delete("all")
         # Köşe braket stili
         bl = 8
@@ -765,6 +796,42 @@ class JarvisUI:
             c.create_line(bx, by, bx, by+sy*bl, fill=C_RED, width=2)
         c.create_text(BW//2, BH//2, text="  KAPAT",
                       fill=C_RED, font=font_display(11))
+
+    def _build_background_button(self):
+        self._background_canvas = tk.Canvas(
+            self.root, width=186, height=34, bg=C_BG, highlightthickness=0, cursor="hand2"
+        )
+        self._background_canvas.bind("<Button-1>", lambda e: self._toggle_background_mode())
+        self._draw_background_button()
+
+    def _draw_background_button(self):
+        c = self._background_canvas
+        bw = int(c["width"])
+        bh = int(c["height"])
+        c.delete("all")
+        col = C_MID if not self._mini_mode else C_BLUE
+        text = "ARKA PLANDA DEVAM ET" if not self._mini_mode else "NORMALE DÖN"
+        bl = 6
+        for bx, by, sx, sy in [(0, 0, 1, 1), (bw, 0, -1, 1), (0, bh, 1, -1), (bw, bh, -1, -1)]:
+            c.create_line(bx, by, bx + sx * bl, by, fill=col, width=1)
+            c.create_line(bx, by, bx, by + sy * bl, fill=col, width=1)
+        c.create_text(bw // 2, bh // 2, text=text, fill=col, font=font_body_bold(9))
+
+    def _apply_control_sizes(self):
+        if self._mini_mode:
+            self._mute_canvas.configure(width=156, height=44)
+            self._pause_canvas.configure(width=156, height=44)
+            self._shutdown_canvas.configure(width=170, height=44)
+            self._background_canvas.configure(width=220, height=38)
+        else:
+            self._mute_canvas.configure(width=126, height=36)
+            self._pause_canvas.configure(width=126, height=36)
+            self._shutdown_canvas.configure(width=140, height=36)
+            self._background_canvas.configure(width=186, height=34)
+        self._draw_mute_button()
+        self._draw_pause_button()
+        self._draw_shutdown_button()
+        self._draw_background_button()
 
     def _build_settings_panel(self):
         geo = self._settings_geometry
@@ -1078,7 +1145,8 @@ class JarvisUI:
         return max(0.0, min(2.0, getattr(self, "_mic_input_level", 100) / 100.0))
 
     def _play_startup_sfx_once(self):
-        pass
+        if self._sfx_on and not self.paused:
+            self.sound.play_startup()
 
     def _sync_sound_state(self):
         enabled = self._sfx_on and not self.paused
@@ -1328,13 +1396,67 @@ class JarvisUI:
             self.root.geometry(self._window_geometry)
             self._resize_surface(*self._normal_size)
 
+    def _toggle_background_mode(self):
+        if self._mini_mode:
+            self._exit_mini_mode()
+        else:
+            self._enter_mini_mode()
+        self._draw_background_button()
+
+    def _enter_mini_mode(self):
+        self._mini_mode = True
+        self._settings_open = False
+        self._prev_fullscreen = self._fullscreen
+        try:
+            self._prev_geometry = self.root.geometry()
+        except Exception:
+            self._prev_geometry = self._window_geometry
+
+        self._fullscreen = False
+        self.root.attributes("-fullscreen", False)
+        self.root.overrideredirect(True)
+        self.root.wm_attributes("-transparentcolor", C_BG)
+        self.root.attributes("-topmost", True)
+        self.root.lift()
+
+        mini_w, mini_h = 540, 360
+        sw = self.root.winfo_screenwidth()
+        sh = self.root.winfo_screenheight()
+        x = max(0, (sw - mini_w) // 2)
+        y = max(0, sh - mini_h - 52)
+        self.root.geometry(f"{mini_w}x{mini_h}+{x}+{y}")
+        self._apply_control_sizes()
+        self._resize_surface(mini_w, mini_h)
+
+    def _exit_mini_mode(self):
+        self._mini_mode = False
+        self.root.overrideredirect(False)
+        try:
+            self.root.wm_attributes("-transparentcolor", "")
+        except Exception:
+            pass
+        self.root.attributes("-topmost", False)
+        self._apply_control_sizes()
+        self.root.geometry(self._prev_geometry)
+        if self._prev_fullscreen:
+            self._fullscreen = True
+            self._enter_fullscreen()
+        else:
+            self._fullscreen = False
+            self.root.attributes("-fullscreen", False)
+            w, h = self._normal_size
+            self._resize_surface(w, h)
+
     def _resize_surface(self, width: int, height: int):
         self._set_layout_metrics(width, height)
         self.bg.configure(width=self.W, height=self.H)
         self.bg.place(x=0, y=0)
         self._place_layout_widgets()
         if hasattr(self, "_social_bar"):
-            self._social_bar.place(x=14, y=self.H - FOOTER_H - 52)
+            if self._mini_mode:
+                self._social_bar.place_forget()
+            else:
+                self._social_bar.place(x=14, y=self.H - FOOTER_H - 52)
         for p in self.particles:
             p["x"] %= self.W
             p["y"] %= self.H
@@ -1371,50 +1493,73 @@ class JarvisUI:
             width=btn_w, height=INPUT_H)
 
     def _place_layout_widgets(self):
-        self.log_frame.place(x=self.CHAT_X, y=self.CHAT_Y, width=self.CHAT_W, height=self.CHAT_H)
-        gap = 12
-        mute_w = 126
-        pause_w = 126
-        shutdown_w = int(self._shutdown_canvas["width"])
-        total = mute_w + pause_w + shutdown_w + gap * 2
-        start_x = self.FCX - total // 2
-        row1_y = self.CTRL_Y + 20
-
-        self._mute_canvas.place(x=start_x, y=row1_y)
-        self._pause_canvas.place(x=start_x + mute_w + gap, y=row1_y)
-        self._shutdown_canvas.place(x=start_x + mute_w + pause_w + gap * 2, y=row1_y)
-
-        geo = self._settings_geometry
-        panel_x = geo["panel_x"]
-        panel_y = geo["panel_y"]
-        panel_w = geo["panel_w"]
-        panel_h = geo["panel_h"]
-        if self._settings_open:
-            self._settings_panel.place(x=panel_x, y=panel_y, width=panel_w, height=panel_h)
-            self._settings_panel.lift()
-            self._settings_title.place(x=14, y=12)
-            self._settings_tab_settings.place(x=14, y=40)
-            self._settings_tab_debug.place(x=130, y=40)
-            if self._settings_tab == "debug":
-                self._settings_body.place_forget()
-                self._debug_body.place(x=12, y=76, width=panel_w - 24, height=panel_h - 88)
-                self._debug_text.place(x=0, y=0, width=panel_w - 24, height=panel_h - 88)
-                self._debug_body.lift()
-            else:
-                self._debug_body.place_forget()
-                self._settings_body.place(x=12, y=76, width=panel_w - 24, height=panel_h - 88)
-                self._settings_body.lift()
-        else:
+        if self._mini_mode:
+            self.log_frame.place_forget()
+            self._input_entry.place_forget()
+            self._send_btn.place_forget()
             self._settings_panel.place_forget()
             self._settings_title.place_forget()
             self._settings_tab_settings.place_forget()
             self._settings_tab_debug.place_forget()
             self._settings_body.place_forget()
             self._debug_body.place_forget()
+            self._settings_btn_canvas.place_forget()
+            if hasattr(self, "_social_bar"):
+                self._social_bar.place_forget()
+        else:
+            self.log_frame.place(x=self.CHAT_X, y=self.CHAT_Y, width=self.CHAT_W, height=self.CHAT_H)
+            geo = self._settings_geometry
+            self._settings_btn_canvas.place(x=geo["btn_x"], y=geo["btn_y"])
+            if hasattr(self, "_social_bar"):
+                self._social_bar.place(x=14, y=self.H - FOOTER_H - 52)
 
-        inp_w = self.CHAT_W - 84
-        self._input_entry.place(x=self.CHAT_X, y=self.CHAT_INPUT_Y, width=inp_w, height=INPUT_H)
-        self._send_btn.place(x=self.CHAT_X + inp_w + 8, y=self.CHAT_INPUT_Y, width=76, height=INPUT_H)
+        gap = 16 if self._mini_mode else 12
+        mute_w = int(self._mute_canvas["width"])
+        pause_w = int(self._pause_canvas["width"])
+        shutdown_w = int(self._shutdown_canvas["width"])
+        total = mute_w + pause_w + shutdown_w + gap * 2
+        start_x = self.FCX - total // 2
+        row1_y = self.CTRL_Y + (0 if self._mini_mode else 20)
+
+        self._mute_canvas.place(x=start_x, y=row1_y)
+        self._pause_canvas.place(x=start_x + mute_w + gap, y=row1_y)
+        self._shutdown_canvas.place(x=start_x + mute_w + pause_w + gap * 2, y=row1_y)
+        bg_w = int(self._background_canvas["width"])
+        self._background_canvas.place(x=self.FCX - (bg_w // 2), y=row1_y + int(self._mute_canvas["height"]) + 8)
+        # Canvas widget'larda tkraise/lift metodu item bazli oldugu icin
+        # burada widget seviyesinde cagrilmiyor; place sirasi yeterli.
+        if not self._mini_mode:
+            geo = self._settings_geometry
+            panel_x = geo["panel_x"]
+            panel_y = geo["panel_y"]
+            panel_w = geo["panel_w"]
+            panel_h = geo["panel_h"]
+            if self._settings_open:
+                self._settings_panel.place(x=panel_x, y=panel_y, width=panel_w, height=panel_h)
+                self._settings_panel.lift()
+                self._settings_title.place(x=14, y=12)
+                self._settings_tab_settings.place(x=14, y=40)
+                self._settings_tab_debug.place(x=130, y=40)
+                if self._settings_tab == "debug":
+                    self._settings_body.place_forget()
+                    self._debug_body.place(x=12, y=76, width=panel_w - 24, height=panel_h - 88)
+                    self._debug_text.place(x=0, y=0, width=panel_w - 24, height=panel_h - 88)
+                    self._debug_body.lift()
+                else:
+                    self._debug_body.place_forget()
+                    self._settings_body.place(x=12, y=76, width=panel_w - 24, height=panel_h - 88)
+                    self._settings_body.lift()
+            else:
+                self._settings_panel.place_forget()
+                self._settings_title.place_forget()
+                self._settings_tab_settings.place_forget()
+                self._settings_tab_debug.place_forget()
+                self._settings_body.place_forget()
+                self._debug_body.place_forget()
+
+            inp_w = self.CHAT_W - 84
+            self._input_entry.place(x=self.CHAT_X, y=self.CHAT_INPUT_Y, width=inp_w, height=INPUT_H)
+            self._send_btn.place(x=self.CHAT_X + inp_w + 8, y=self.CHAT_INPUT_Y, width=76, height=INPUT_H)
 
     def _on_input_submit(self, event=None):
         text = self._input_var.get().strip()
@@ -1564,6 +1709,14 @@ class JarvisUI:
         t   = self.tick
         now = time.time()
 
+        # Mini modda pencere her zaman ustte kalsin.
+        if self._mini_mode and (t % 24 == 0):
+            try:
+                self.root.attributes("-topmost", True)
+                self.root.lift()
+            except Exception:
+                pass
+
         if self.user_speaking and now > self._user_speaking_until:
             self.user_speaking = False
         self._mic_level *= 0.84
@@ -1654,6 +1807,14 @@ class JarvisUI:
         raw = raw.replace(" ve ", ", ")
         parts = [part.strip(" .") for part in raw.split(",") if part.strip()]
         return parts[:limit]
+
+    @staticmethod
+    def _wrap_line(text: str, max_chars: int) -> list[str]:
+        clean = (text or "").strip()
+        if not clean:
+            return []
+        width = max(16, int(max_chars))
+        return textwrap.wrap(clean, width=width, break_long_words=False, break_on_hyphens=False) or [clean]
 
     def _parse_weather_card(self, text: str) -> dict:
         if not text or "alınamadı" in text.lower() or "alınamadi" in text.lower():
@@ -1771,6 +1932,18 @@ class JarvisUI:
             self._health_hide_job = self.root.after(14000, self._hide_health_hologram)
         self.root.after(0, _show)
 
+    def update_health_card(self, data_str: str, focus_ms: int = 5000):
+        def _update():
+            self._health_visible = False
+            if self._health_hide_job:
+                self.root.after_cancel(self._health_hide_job)
+                self._health_hide_job = None
+            self._health_display = data_str or ""
+            self._health_card_lines = self._parse_health_card(self._health_display)
+            self._panel_focus = "health"
+            self._panel_focus_until = time.time() + max(1.0, focus_ms / 1000.0)
+        self.root.after(0, _update)
+
     def _hide_health_hologram(self):
         self._health_visible  = False
         self._health_hide_job = None
@@ -1786,7 +1959,7 @@ class JarvisUI:
         self._bracket(c, x0, y0, pw, ph, col=C_ORG, bl=10)
 
         title_col = self._ac(0, 212, 192, int(200 + 55*pulse))
-        c.create_text(x0+pw//2, y0+18, text="* HEALTH *",
+        c.create_text(x0+pw//2, y0+18, text="* SAĞLIK *",
                       fill=title_col, font=font_display(11))
         c.create_line(x0+8, y0+30, x0+pw-8, y0+30, fill=C_MID)
 
@@ -1830,8 +2003,8 @@ class JarvisUI:
         cards = [
             ("time", 0.22, "SAAT", C_GOLD),
             ("weather", 0.20, "HAVA DURUMU  -  İSTANBUL", C_BLUE),
-            ("system", 0.28, "SISTEM DURUMU", C_PRI),
-            ("health", 0.30, "SAGLIK OZETI", C_GREEN),
+            ("system", 0.28, "SİSTEM DURUMU", C_PRI),
+            ("health", 0.30, "SAĞLIK ÖZETİ", C_GREEN),
         ]
         any_focus_active = bool(self._panel_focus) and (self._panel_focus_until > time.time())
         weights = []
@@ -1922,10 +2095,22 @@ class JarvisUI:
 
             elif section == "health":
                 hy = current_y + 48
-                for line in self._health_card_lines[:5]:
-                    c.create_text(section_x+section_pad, hy, text=f"- {line}", fill=muted_text,
-                                  font=font_body(10), anchor="w")
-                    hy += 21
+                max_chars = max(20, int(section_bw / 7.6))
+                shown = 0
+                for line in self._health_card_lines:
+                    wrapped = self._wrap_line(line, max_chars=max_chars)
+                    if not wrapped:
+                        continue
+                    for idx, part in enumerate(wrapped):
+                        if shown >= 6:
+                            break
+                        prefix = "- " if idx == 0 else "  "
+                        c.create_text(section_x+section_pad, hy, text=f"{prefix}{part}", fill=muted_text,
+                                      font=font_body(10), anchor="w")
+                        hy += 18
+                        shown += 1
+                    if shown >= 6:
+                        break
 
             current_y += ph + gap
 
@@ -2147,39 +2332,45 @@ class JarvisUI:
         t  = self.tick
         c.delete("all")
 
-        # â”€â”€ Arka plan â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        # Nokta ızgarası  -  çok ince
-        step = 48
-        for x in range(0, W, step):
-            for y in range(0, H, step):
-                c.create_rectangle(x, y, x+1, y+1, fill=C_DIMMER, outline="")
+        if self._mini_mode:
+            # Mini modda arka plan tamamen saydam kalsın.
+            # Sadece orb ve kontroller çizilir.
+            pass
+        else:
+            # â”€â”€ Arka plan â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            # Nokta ızgarası  -  çok ince
+            step = 48
+            for x in range(0, W, step):
+                for y in range(0, H, step):
+                    c.create_rectangle(x, y, x+1, y+1, fill=C_DIMMER, outline="")
 
-        # Tarama çizgisi (yavaş, çok soluk)
-        scan_y = (t * 0.7) % (H + 60) - 30
-        for i in range(2):
-            ly = (scan_y + i * 20) % H
-            c.create_line(0, ly, W, ly+35, fill="#081818", width=1)
+            # Tarama çizgisi (yavaş, çok soluk)
+            scan_y = (t * 0.7) % (H + 60) - 30
+            for i in range(2):
+                ly = (scan_y + i * 20) % H
+                c.create_line(0, ly, W, ly+35, fill="#081818", width=1)
 
-        # Partiküller
-        R, G, B = self._orb_rgb()
-        for p in self.particles:
-            if self.speaking:
-                col = self._ac(255, 110, 0, p['a'])
-            else:
-                col = self._ac(R, G, B, p['a'])
-            r = p['r']
-            c.create_oval(p['x']-r, p['y']-r, p['x']+r, p['y']+r,
-                          fill=col, outline="")
+            # Partiküller
+            R, G, B = self._orb_rgb()
+            for p in self.particles:
+                if self.speaking:
+                    col = self._ac(255, 110, 0, p['a'])
+                else:
+                    col = self._ac(R, G, B, p['a'])
+                r = p['r']
+                c.create_oval(p['x']-r, p['y']-r, p['x']+r, p['y']+r,
+                              fill=col, outline="")
 
-        # â”€â”€ Bölücü çizgiler (ince, soluk) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        c.create_line(self.LEFT_W, HDR_H, self.LEFT_W, H-FOOTER_H,
-                      fill=C_DIM, width=1)
-        c.create_line(W-self.RIGHT_W, HDR_H, W-self.RIGHT_W, H-FOOTER_H,
-                      fill=C_DIM, width=1)
+        if not self._mini_mode:
+            # â”€â”€ Bölücü çizgiler (ince, soluk) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            c.create_line(self.LEFT_W, HDR_H, self.LEFT_W, H-FOOTER_H,
+                          fill=C_DIM, width=1)
+            c.create_line(W-self.RIGHT_W, HDR_H, W-self.RIGHT_W, H-FOOTER_H,
+                          fill=C_DIM, width=1)
 
-        # â”€â”€ Yan paneller â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        self._draw_left_panel(c)
-        self._draw_right_panel(c)
+            # â”€â”€ Yan paneller â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            self._draw_left_panel(c)
+            self._draw_right_panel(c)
 
         # â”€â”€ Orb â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         self._draw_orb(c)
@@ -2210,40 +2401,41 @@ class JarvisUI:
         c.create_text(self.FCX, self.CTRL_Y - 12, text=f"* {state_label_tr}",
                       fill=state_col, font=font_body_bold(11))
 
-        # â”€â”€ HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        c.create_rectangle(0, 0, W, HDR_H, fill="#010a0a", outline="")
-        # Alt çizgi  -  teal parlak
-        c.create_line(0, HDR_H, W, HDR_H, fill=C_MID, width=1)
-        for i in range(3):
-            a = 60 - i * 18
-            c.create_line(0, HDR_H-1-i, W, HDR_H-1-i,
-                          fill=self._ac(0, 180, 165, a), width=1)
+        if not self._mini_mode:
+            # â”€â”€ HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            c.create_rectangle(0, 0, W, HDR_H, fill="#010a0a", outline="")
+            # Alt çizgi  -  teal parlak
+            c.create_line(0, HDR_H, W, HDR_H, fill=C_MID, width=1)
+            for i in range(3):
+                a = 60 - i * 18
+                c.create_line(0, HDR_H-1-i, W, HDR_H-1-i,
+                              fill=self._ac(0, 180, 165, a), width=1)
 
-        # Büyük başlık
-        c.create_text(W//2, 24, text=SYSTEM_NAME,
-                      fill=C_PRI, font=font_display(26))
-        c.create_text(W//2, 52, text="Yalnızca Oldukça Zeki Bir Sistem",
-                      fill=C_MID, font=font_body(11))
+            # Büyük başlık
+            c.create_text(W//2, 24, text=SYSTEM_NAME,
+                          fill=C_PRI, font=font_display(26))
+            c.create_text(W//2, 52, text="Just A Rather Very Intelligent System",
+                          fill=C_MID, font=font_body(11))
 
-        # Sol: model badge
-        c.create_text(22, 36, text=MODEL_BADGE,
-                      fill=C_DIM, font=font_body(10), anchor="w")
+            # Sol: model badge
+            c.create_text(22, 36, text=MODEL_BADGE,
+                          fill=C_DIM, font=font_body(10), anchor="w")
 
-        # Sağ: durum indikatörü
-        indicator_state = "PAUSED" if self.paused else self._jarvis_state
-        ind_col = self._state_color(indicator_state)
-        indicator_text = self._state_badge_text(indicator_state)
-        sym = "*" if self.status_blink else "o"
-        c.create_text(W-22, 36, text=f"{sym}  {indicator_text}",
-                      fill=ind_col, font=font_body_bold(11), anchor="e")
+            # Sağ: durum indikatörü
+            indicator_state = "PAUSED" if self.paused else self._jarvis_state
+            ind_col = self._state_color(indicator_state)
+            indicator_text = self._state_badge_text(indicator_state)
+            sym = "*" if self.status_blink else "o"
+            c.create_text(W-22, 36, text=f"{sym}  {indicator_text}",
+                          fill=ind_col, font=font_body_bold(11), anchor="e")
 
-        # â”€â”€ FOOTER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-        c.create_rectangle(0, H-FOOTER_H, W, H, fill="#010a0a", outline="")
-        c.create_line(0, H-FOOTER_H, W, H-FOOTER_H, fill=C_DIM, width=1)
-        c.create_text(W//2, H-13, fill=C_DIM, font=font_body(9),
-                      text="JARVIS  -  Windows Sürümü  -  Gerçek Zamanlı Ses Çekirdeği")
-        c.create_text(W-18, H-13, fill=C_DIM, font=font_body(9),
-                      text="[F4] SES KAPAT  [F5] DURAKLAT  [ESC] ÇIKIŞ", anchor="e")
+            # â”€â”€ FOOTER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+            c.create_rectangle(0, H-FOOTER_H, W, H, fill="#010a0a", outline="")
+            c.create_line(0, H-FOOTER_H, W, H-FOOTER_H, fill=C_DIM, width=1)
+            c.create_text(W//2, H-13, fill=C_DIM, font=font_body(9),
+                          text="JARVIS  -  Windows Sürümü  -  Gerçek Zamanlı Ses Çekirdeği")
+            c.create_text(W-18, H-13, fill=C_DIM, font=font_body(9),
+                          text="[F4] SES KAPAT  [F5] DURAKLAT  [ESC] ÇIKIŞ", anchor="e")
 
     def wait_for_api_key(self):
         while not self._api_key_ready:
