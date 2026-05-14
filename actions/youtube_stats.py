@@ -1,4 +1,4 @@
-# Alp Ünlü tarafından yapılmıştır — @alppunlu
+﻿# Exlives
 from __future__ import annotations
 
 import datetime as dt
@@ -62,10 +62,10 @@ def _days_ago_text(published_at: str) -> str:
     delta = now - published.astimezone(dt.timezone.utc)
     days = max(0, delta.days)
     if days == 0:
-        return "bugün"
+        return "bugÃ¼n"
     if days == 1:
-        return "dün"
-    return f"{days} gün önce"
+        return "dÃ¼n"
+    return f"{days} gÃ¼n Ã¶nce"
 
 
 def _average(values: list[int]) -> float:
@@ -334,3 +334,5 @@ def get_youtube_channel_report(query: str = "overview", handle: str = "", video_
         return " ".join(parts)
     except Exception as exc:
         return f"YouTube istatistikleri alinamadi: {exc}"
+
+

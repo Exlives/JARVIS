@@ -1,13 +1,12 @@
-"""
-JARVIS macOS — UI v3
-Concentric teal rings · Segmented arcs
-Alp Ünlü tarafından yapılmıştır — @alppunlu
+﻿"""
+JARVIS macOS  -  UI v3
+Concentric teal rings  -  Segmented arcs
+Exlives
 """
 
 import os, time, math, random, signal, threading
 import subprocess
 import tkinter as tk
-import webbrowser
 from collections import deque
 from pathlib import Path
 import psutil
@@ -19,9 +18,9 @@ from actions.weather import get_weather_summary
 BASE_DIR = Path(__file__).resolve().parent
 
 SYSTEM_NAME = "J.A.R.V.I.S"
-MODEL_BADGE = "VOICE CORE · Windows"
+MODEL_BADGE = "VOICE CORE  -  Windows"
 
-# ── Renk paleti ──────────────────────────────────────────────────────────────
+# â”€â”€ Renk paleti â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 C_BG      = "#020c0c"
 C_PRI     = "#00d4c0"
 C_ORG     = "#ff6600"
@@ -48,7 +47,7 @@ ORB_COLORS = {
     "INITIALISING": (255, 51, 68),
 }
 
-# ── Boyutlar ─────────────────────────────────────────────────────────────────
+# â”€â”€ Boyutlar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 W_TARGET = 2200
 H_TARGET = 1320
 LEFT_W_T = 360
@@ -60,7 +59,7 @@ CONTROL_H = 146
 
 VOICES = ["Charon", "Puck", "Aoede", "Kore", "Fenrir", "Leda", "Orus", "Zephyr"]
 
-# ── Font sistemi ─────────────────────────────────────────────────────────────
+# â”€â”€ Font sistemi â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # Grift fontu kullanıcının sisteminde yüklü. Basliklarda daha sert bir vurgu
 # icin ayri extra bold aile adini kullaniyoruz.
 FONT_BODY_FAMILY = "Grift"
@@ -88,7 +87,7 @@ STATE_HEX_COLORS = {
 }
 
 
-# ── SoundManager ─────────────────────────────────────────────────────────────
+# â”€â”€ SoundManager â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 import subprocess as _sp
 
 
@@ -469,7 +468,7 @@ class SoundManager:
         return self._volume
 
 
-# ─────────────────────────────────────────────────────────────────────────────
+# â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 class JarvisUI:
     def __init__(self):
@@ -503,7 +502,7 @@ class JarvisUI:
 
         self._set_layout_metrics(self.W, self.H)
 
-        # ── State ────────────────────────────────────────────────────────────
+        # â”€â”€ State â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         self.speaking        = False
         self.user_speaking   = False
         self.muted           = False
@@ -520,7 +519,7 @@ class JarvisUI:
         self._jarvis_state   = "INITIALISING"
         self._user_speaking_until = 0.0
 
-        # ── Health overlay ───────────────────────────────────────────────────
+        # â”€â”€ Health overlay â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         self._health_visible  = False
         self._health_query    = "all"
         self._health_display  = ""
@@ -555,20 +554,20 @@ class JarvisUI:
         self.youtube_api_entry = None
         self.youtube_handle_entry = None
 
-        # ── Callbacks ────────────────────────────────────────────────────────
+        # â”€â”€ Callbacks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         self.on_text_command = None
         self.on_pause_toggle = None
         self.on_stop_command = None
         self.on_voice_change = None
         self.on_effects_state_change = None
 
-        # ── Voice ────────────────────────────────────────────────────────────
+        # â”€â”€ Voice â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         self._current_voice = self._load_voice()
 
-        # ── Sound ────────────────────────────────────────────────────────────
+        # â”€â”€ Sound â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         self.sound = SoundManager()
 
-        # ── Stats ────────────────────────────────────────────────────────────
+        # â”€â”€ Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         self._stats      = {'cpu': 0.0, 'ram': 0.0, 'disk': 0.0,
                             'battery': 100.0, 'net_up': 0.0, 'net_down': 0.0}
         self._cpu_hist   = [0.0] * 24
@@ -577,11 +576,11 @@ class JarvisUI:
         self._wave_jarvis = [random.randint(4, 26) for _ in range(18)]
         self._wave_user   = [random.randint(2, 10) for _ in range(18)]
 
-        # ── Typing ───────────────────────────────────────────────────────────
+        # â”€â”€ Typing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         self.typing_queue = deque()
         self.is_typing    = False
 
-        # ── Partiküller (arka plan, az sayıda) ───────────────────────────────
+        # â”€â”€ Partiküller (arka plan, az sayıda) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         self.particles = [
             {
                 'x':  random.uniform(0, self.W),
@@ -617,12 +616,12 @@ class JarvisUI:
             for _ in range(84)
         ]
 
-        # ── Canvas ───────────────────────────────────────────────────────────
+        # â”€â”€ Canvas â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         self.bg = tk.Canvas(self.root, width=self.W, height=self.H,
                             bg=C_BG, highlightthickness=0)
         self.bg.place(x=0, y=0)
 
-        # ── Log ──────────────────────────────────────────────────────────────
+        # â”€â”€ Log â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         self.log_frame = tk.Frame(self.root, bg="#030e0e",
                                   highlightbackground=C_MID,
                                   highlightthickness=1)
@@ -715,56 +714,28 @@ class JarvisUI:
         self.CHAT_H = self.CHAT_PANEL_H - 90
         self.CHAT_INPUT_Y = self.CHAT_PANEL_Y + self.CHAT_PANEL_H - INPUT_H - 10
 
-    # ── Social bar ───────────────────────────────────────────────────────────
+    # â”€â”€ Social bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _build_social_bar(self):
-        ICON_SIZE = 28
-        ICON_DIR  = BASE_DIR / "Icon"
-
         bar = tk.Frame(self.root, bg=C_BG)
         self._social_bar = bar
         bar.place(x=14, y=self.H - FOOTER_H - 52)
 
-        def _open(url):
-            return lambda e: webbrowser.open(url, new=2)
-
-        def _load_icon(filename: str):
-            try:
-                img = Image.open(ICON_DIR / filename).convert("RGBA")
-                img = img.resize((ICON_SIZE, ICON_SIZE), Image.LANCZOS)
-                return ImageTk.PhotoImage(img)
-            except Exception:
-                return None
-
         name_lbl = tk.Label(
-            bar, text="Alp\nÜnlü",
+            bar, text="Exlives",
             fg="#3a8a82", bg=C_BG,
-            font=font_display(14), cursor="hand2",
+            font=font_display(14),
             justify="left",
         )
-        name_lbl.pack(side="left", padx=(0, 10))
-        name_lbl.bind("<Button-1>", _open("https://www.instagram.com/alppunlu"))
+        name_lbl.pack(side="left", padx=(0, 6))
 
-        self._icon_ig = _load_icon("instagram-logo.png")
-        self._icon_yt = _load_icon("youtube-logo.png")
-
-        if self._icon_ig:
-            ig_lbl = tk.Label(bar, image=self._icon_ig, bg=C_BG, cursor="hand2")
-            ig_lbl.pack(side="left", padx=4)
-            ig_lbl.bind("<Button-1>", _open("https://www.instagram.com/alppunlu"))
-
-        if self._icon_yt:
-            yt_lbl = tk.Label(bar, image=self._icon_yt, bg=C_BG, cursor="hand2")
-            yt_lbl.pack(side="left", padx=4)
-            yt_lbl.bind("<Button-1>", _open("https://www.youtube.com/@alpunlu"))
-
-    # ── Voice ─────────────────────────────────────────────────────────────────
+    # â”€â”€ Voice â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _load_voice(self) -> str:
         try:
             return str(load_app_config().get("voice", "Charon") or "Charon")
         except Exception:
             return "Charon"
 
-    # ── Shutdown button (sağ alt, büyük) ────────────────────────────────────
+    # â”€â”€ Shutdown button (sağ alt, büyük) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _build_shutdown_button(self):
         BW, BH = 140, 36
         self._shutdown_canvas = tk.Canvas(
@@ -783,7 +754,7 @@ class JarvisUI:
                                 (0, BH, 1, -1), (BW, BH, -1, -1)]:
             c.create_line(bx, by, bx+sx*bl, by, fill=C_RED, width=2)
             c.create_line(bx, by, bx, by+sy*bl, fill=C_RED, width=2)
-        c.create_text(BW//2, BH//2, text="⏻  SHUTDOWN",
+        c.create_text(BW//2, BH//2, text="  SHUTDOWN",
                       fill=C_RED, font=font_display(11))
 
     def _build_settings_panel(self):
@@ -895,7 +866,7 @@ class JarvisUI:
             c.create_line(bx, by, bx, by + sy * bl, fill=accent, width=2)
         c.create_text(14, 15, text="SYSTEM SETTINGS", fill=C_PRI, font=font_display(10), anchor="w")
         c.create_text(14, 33, text=MODEL_BADGE, fill="#4f7b78", font=font_body(9), anchor="w")
-        c.create_text(bw - 14, bh // 2, text="▾" if self._settings_open else "▸",
+        c.create_text(bw - 14, bh // 2, text="v" if self._settings_open else ">",
                       fill=accent, font=font_display(14), anchor="e")
 
     def _toggle_settings_panel(self):
@@ -957,7 +928,7 @@ class JarvisUI:
             handle_text = "@handle girilmedi"
         secondary = f"Kanal: {handle_text}"
 
-        self._settings_status_primary.configure(text="  ·  ".join(primary))
+        self._settings_status_primary.configure(text="   -   ".join(primary))
         self._settings_status_secondary.configure(text=secondary)
 
     def write_debug(self, text: str, level: str = "INFO"):
@@ -1004,7 +975,7 @@ class JarvisUI:
         for bx, by, sx, sy in [(0, 0, 1, 1), (bw, 0, -1, 1), (0, bh, 1, -1), (bw, bh, -1, -1)]:
             c.create_line(bx, by, bx + sx * bl, by, fill=C_BLUE, width=1)
             c.create_line(bx, by, bx, by + sy * bl, fill=C_BLUE, width=1)
-        c.create_text(bw // 2, bh // 2, text="⌘ API SETTINGS",
+        c.create_text(bw // 2, bh // 2, text=" API SETTINGS",
                       fill=C_BLUE, font=font_body_bold(10))
 
     def _build_fx_slider(self, parent=None):
@@ -1073,7 +1044,7 @@ class JarvisUI:
         self.youtube_api_entry = None
         self.youtube_handle_entry = None
 
-    # ── SFX toggle ───────────────────────────────────────────────────────────
+    # â”€â”€ SFX toggle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _build_sfx_button(self, parent=None):
         parent = parent or self.root
         BW, BH = 98, 36
@@ -1089,7 +1060,7 @@ class JarvisUI:
         BH = int(c["height"])
         c.delete("all")
         col  = C_PRI if self._sfx_on else C_MID
-        text = "♪ SFX ON"  if self._sfx_on else "♪ SFX OFF"
+        text = "SFX SFX ON"  if self._sfx_on else "SFX SFX OFF"
         bl = 6
         for bx, by, sx, sy in [(0, 0, 1, 1), (BW, 0, -1, 1),
                                 (0, BH, 1, -1), (BW, BH, -1, -1)]:
@@ -1102,7 +1073,7 @@ class JarvisUI:
         self._draw_sfx_button()
         self._sync_sound_state()
 
-    # ── Voice selector ───────────────────────────────────────────────────────
+    # â”€â”€ Voice selector â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _build_voice_selector(self, parent=None):
         parent = parent or self.root
         self._voice_var = tk.StringVar(value=self._current_voice)
@@ -1126,7 +1097,7 @@ class JarvisUI:
         if self.on_voice_change:
             threading.Thread(target=self.on_voice_change, args=(voice,), daemon=True).start()
 
-    # ── Mute button ──────────────────────────────────────────────────────────
+    # â”€â”€ Mute button â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _build_mute_button(self):
         self._mute_canvas = tk.Canvas(self.root, width=126, height=36,
                                       bg=C_BG, highlightthickness=0, cursor="hand2")
@@ -1139,9 +1110,9 @@ class JarvisUI:
         bh = int(c["height"])
         c.delete("all")
         if self.muted:
-            col, icon, lbl = C_MUTED, "🔇", " MUTED"
+            col, icon, lbl = C_MUTED, "", " MUTED"
         else:
-            col, icon, lbl = C_GREEN, "🎙", " LIVE"
+            col, icon, lbl = C_GREEN, "", " LIVE"
         bl = 6
         for bx, by, sx, sy in [(0, 0, 1, 1), (bw, 0, -1, 1),
                                 (0, bh, 1, -1), (bw, bh, -1, -1)]:
@@ -1162,9 +1133,9 @@ class JarvisUI:
         bh = int(c["height"])
         c.delete("all")
         if self.paused:
-            col, text = C_GOLD, "▶ RESUME"
+            col, text = C_GOLD, "RESUME"
         else:
-            col, text = C_BLUE, "⏸ PAUSE"
+            col, text = C_BLUE, "PAUSE"
         bl = 6
         for bx, by, sx, sy in [(0, 0, 1, 1), (bw, 0, -1, 1),
                                (0, bh, 1, -1), (bw, bh, -1, -1)]:
@@ -1181,7 +1152,7 @@ class JarvisUI:
             self.write_log("SYS: Mikrofon açık.")
         self._sync_sound_state()
 
-    # ── Orb tıklama = pause ──────────────────────────────────────────────────
+    # â”€â”€ Orb tıklama = pause â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _on_canvas_click(self, event):
         dx = event.x - self.FCX
         dy = event.y - self.FCY
@@ -1226,7 +1197,7 @@ class JarvisUI:
             p["x"] %= self.W
             p["y"] %= self.H
 
-    # ── Input bar ────────────────────────────────────────────────────────────
+    # â”€â”€ Input bar â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _build_input_bar(self, lw: int):
         x0 = self.CHAT_X
         btn_w = 76
@@ -1246,7 +1217,7 @@ class JarvisUI:
         self._input_entry.bind("<KP_Enter>", self._on_input_submit)
 
         self._send_btn = tk.Button(
-            self.root, text="SEND ▸",
+            self.root, text="SEND >",
             command=self._on_input_submit,
             fg=C_ORG, bg=C_PANEL,
             activeforeground=C_BG, activebackground=C_ORG,
@@ -1312,14 +1283,14 @@ class JarvisUI:
             return
         self._input_var.set("")
         if text.lower() in ("sus", "dur", "stop", "sessiz", "kes"):
-            self.write_log("SYS: ⏹ Ses kesildi.")
+            self.write_log("SYS: STOP Ses kesildi.")
             if self.on_stop_command:
                 threading.Thread(target=self.on_stop_command, daemon=True).start()
             return
         if self.on_text_command:
             threading.Thread(target=self.on_text_command, args=(text,), daemon=True).start()
 
-    # ── State & callbacks ────────────────────────────────────────────────────
+    # â”€â”€ State & callbacks â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def set_state(self, state: str):
         previous = getattr(self, "_jarvis_state", "")
         self._jarvis_state = state
@@ -1375,7 +1346,7 @@ class JarvisUI:
             return "ERROR"
         return "ONLINE"
 
-    # ── Log ──────────────────────────────────────────────────────────────────
+    # â”€â”€ Log â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def write_log(self, text: str):
         self.typing_queue.append(text)
         tl = text.lower()
@@ -1417,7 +1388,7 @@ class JarvisUI:
             self.log_text.configure(state="disabled")
             self.root.after(20, self._start_typing)
 
-    # ── Stats ────────────────────────────────────────────────────────────────
+    # â”€â”€ Stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _update_stats(self):
         try:
             self._stats['cpu']  = psutil.cpu_percent()
@@ -1438,7 +1409,7 @@ class JarvisUI:
         except Exception:
             pass
 
-    # ── Animation loop ───────────────────────────────────────────────────────
+    # â”€â”€ Animation loop â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _animate(self):
         self.tick += 1
         t   = self.tick
@@ -1505,7 +1476,7 @@ class JarvisUI:
         self._draw()
         self.root.after(33, self._animate)
 
-    # ── Yardımcı ─────────────────────────────────────────────────────────────
+    # â”€â”€ Yardımcı â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     @staticmethod
     def _ac(r, g, b, a):
         f = max(0, min(255, int(a))) / 255.0
@@ -1627,7 +1598,7 @@ class JarvisUI:
         pulse = 0.65 + 0.35 * math.sin(self.tick * 0.12)
         return min(1.0, remaining / 4.0) * pulse
 
-    # ── Health overlay (sol panel) ────────────────────────────────────────────
+    # â”€â”€ Health overlay (sol panel) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def show_health_hologram(self, query: str, data_str: str):
         def _show():
             self._health_visible = True
@@ -1655,7 +1626,7 @@ class JarvisUI:
         self._bracket(c, x0, y0, pw, ph, col=C_ORG, bl=10)
 
         title_col = self._ac(0, 212, 192, int(200 + 55*pulse))
-        c.create_text(x0+pw//2, y0+18, text="◈ HEALTH ◈",
+        c.create_text(x0+pw//2, y0+18, text="* HEALTH *",
                       fill=title_col, font=font_display(11))
         c.create_line(x0+8, y0+30, x0+pw-8, y0+30, fill=C_MID)
 
@@ -1664,7 +1635,7 @@ class JarvisUI:
         for line in lines:
             if ly > y0 + ph - 14:
                 break
-            if line.startswith("──"):
+            if line.startswith("â”€â”€"):
                 c.create_line(x0+8, ly, x0+pw-8, ly, fill=C_DIM)
                 ly += 10
             elif ":" in line:
@@ -1681,7 +1652,7 @@ class JarvisUI:
                               font=font_body(9), anchor="w")
                 ly += 17
 
-    # ── Sol panel ─────────────────────────────────────────────────────────────
+    # â”€â”€ Sol panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _draw_left_panel(self, c):
         if self._health_visible:
             self._draw_health_overlay(c)
@@ -1698,7 +1669,7 @@ class JarvisUI:
 
         cards = [
             ("time", 0.22, "TIME", C_GOLD),
-            ("weather", 0.20, "WEATHER · ISTANBUL", C_BLUE),
+            ("weather", 0.20, "WEATHER  -  ISTANBUL", C_BLUE),
             ("system", 0.28, "SYSTEM STATUS", C_PRI),
             ("health", 0.30, "HEALTH SUMMARY", C_GREEN),
         ]
@@ -1749,7 +1720,7 @@ class JarvisUI:
                               fill=muted_label, font=font_body_bold(10), anchor="w")
                 wy = current_y + 108
                 for line in self._weather_card["details"][:3]:
-                    c.create_text(section_x+section_pad, wy, text=f"• {line}", fill=muted_text,
+                    c.create_text(section_x+section_pad, wy, text=f"- {line}", fill=muted_text,
                                   font=font_body(10), anchor="w")
                     wy += 17
 
@@ -1776,13 +1747,13 @@ class JarvisUI:
                 up_s = f"{up:.1f} KB/s" if up < 1000 else f"{up/1024:.1f} MB/s"
                 down_s = f"{down:.1f} KB/s" if down < 1000 else f"{down/1024:.1f} MB/s"
                 c.create_line(section_x+section_pad, cy-4, section_x+section_pw-section_pad, cy-4, fill="#173130" if dimmed else C_DIM)
-                c.create_text(section_x+section_pad, cy+10, text=f"▲ {up_s}", fill=muted_warn, font=font_body(10), anchor="w")
-                c.create_text(section_x+section_pw-section_pad, cy+10, text=f"▼ {down_s}", fill=muted_green, font=font_body(10), anchor="e")
+                c.create_text(section_x+section_pad, cy+10, text=f"UP {up_s}", fill=muted_warn, font=font_body(10), anchor="w")
+                c.create_text(section_x+section_pw-section_pad, cy+10, text=f"DOWN {down_s}", fill=muted_green, font=font_body(10), anchor="e")
 
             elif section == "health":
                 hy = current_y + 48
                 for line in self._health_card_lines[:5]:
-                    c.create_text(section_x+section_pad, hy, text=f"• {line}", fill=muted_text,
+                    c.create_text(section_x+section_pad, hy, text=f"- {line}", fill=muted_text,
                                   font=font_body(10), anchor="w")
                     hy += 21
 
@@ -1791,7 +1762,7 @@ class JarvisUI:
         self._card_focus_boost = 0.0
         self._card_dimmed = False
 
-    # ── Sağ panel ─────────────────────────────────────────────────────────────
+    # â”€â”€ Sağ panel â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _draw_right_panel(self, c):
         x0  = self.CHAT_PANEL_X
         y0  = self.CHAT_PANEL_Y
@@ -1813,7 +1784,7 @@ class JarvisUI:
                       font=font_body_bold(10), anchor="e")
         c.create_line(x0+pad, y0+28, x0+pw-pad, y0+28, fill=C_DIM)
 
-    # ── ORB (ana çizim) ───────────────────────────────────────────────────────
+    # â”€â”€ ORB (ana çizim) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _draw_orb(self, c):
         state = "PAUSED" if self.paused else self._jarvis_state
         t    = self.tick
@@ -1988,7 +1959,7 @@ class JarvisUI:
                 outline="",
             )
 
-    # ── Ana çizim ─────────────────────────────────────────────────────────────
+    # â”€â”€ Ana çizim â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _draw(self):
         c  = self.bg
         W  = self.W
@@ -1996,8 +1967,8 @@ class JarvisUI:
         t  = self.tick
         c.delete("all")
 
-        # ── Arka plan ────────────────────────────────────────────────────────
-        # Nokta ızgarası — çok ince
+        # â”€â”€ Arka plan â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        # Nokta ızgarası  -  çok ince
         step = 48
         for x in range(0, W, step):
             for y in range(0, H, step):
@@ -2020,29 +1991,29 @@ class JarvisUI:
             c.create_oval(p['x']-r, p['y']-r, p['x']+r, p['y']+r,
                           fill=col, outline="")
 
-        # ── Bölücü çizgiler (ince, soluk) ────────────────────────────────────
+        # â”€â”€ Bölücü çizgiler (ince, soluk) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         c.create_line(self.LEFT_W, HDR_H, self.LEFT_W, H-FOOTER_H,
                       fill=C_DIM, width=1)
         c.create_line(W-self.RIGHT_W, HDR_H, W-self.RIGHT_W, H-FOOTER_H,
                       fill=C_DIM, width=1)
 
-        # ── Yan paneller ──────────────────────────────────────────────────────
+        # â”€â”€ Yan paneller â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         self._draw_left_panel(c)
         self._draw_right_panel(c)
 
-        # ── Orb ──────────────────────────────────────────────────────────────
+        # â”€â”€ Orb â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         self._draw_orb(c)
 
         state_label = "PAUSED" if self.paused else self._jarvis_state
         state_col = self._state_color(state_label)
         c.create_text(self.FCX, self.CTRL_Y - 34, text=SYSTEM_NAME,
                       fill=C_TEXT, font=font_display(18))
-        c.create_text(self.FCX, self.CTRL_Y - 12, text=f"● {state_label.title()}",
+        c.create_text(self.FCX, self.CTRL_Y - 12, text=f"* {state_label.title()}",
                       fill=state_col, font=font_body_bold(11))
 
-        # ── HEADER ───────────────────────────────────────────────────────────
+        # â”€â”€ HEADER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         c.create_rectangle(0, 0, W, HDR_H, fill="#010a0a", outline="")
-        # Alt çizgi — teal parlak
+        # Alt çizgi  -  teal parlak
         c.create_line(0, HDR_H, W, HDR_H, fill=C_MID, width=1)
         for i in range(3):
             a = 60 - i * 18
@@ -2063,15 +2034,15 @@ class JarvisUI:
         indicator_state = "PAUSED" if self.paused else self._jarvis_state
         ind_col = self._state_color(indicator_state)
         indicator_text = self._state_badge_text(indicator_state)
-        sym = "●" if self.status_blink else "○"
+        sym = "*" if self.status_blink else "o"
         c.create_text(W-22, 36, text=f"{sym}  {indicator_text}",
                       fill=ind_col, font=font_body_bold(11), anchor="e")
 
-        # ── FOOTER ───────────────────────────────────────────────────────────
+        # â”€â”€ FOOTER â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
         c.create_rectangle(0, H-FOOTER_H, W, H, fill="#010a0a", outline="")
         c.create_line(0, H-FOOTER_H, W, H-FOOTER_H, fill=C_DIM, width=1)
         c.create_text(W//2, H-13, fill=C_DIM, font=font_body(9),
-                      text="JARVIS · Windows Edition · Realtime Voice Core")
+                      text="JARVIS  -  Windows Edition  -  Realtime Voice Core")
         c.create_text(W-18, H-13, fill=C_DIM, font=font_body(9),
                       text="[F4] MUTE  [F5] PAUSE  [ESC] EXIT", anchor="e")
 
@@ -2090,7 +2061,7 @@ class JarvisUI:
         self.setup_frame.place(relx=0.5, rely=0.5, anchor="center", width=setup_w, height=setup_h)
         self.setup_frame.pack_propagate(False)
 
-        title = "◈ API AYARLARI" if edit_mode else "◈ İLK KURULUM GEREKLİ"
+        title = "* API AYARLARI" if edit_mode else "* İLK KURULUM GEREKLİ"
         subtitle = (
             "Gemini ve YouTube ayarlarinizi guncelleyin."
             if edit_mode else
@@ -2142,7 +2113,7 @@ class JarvisUI:
         buttons = tk.Frame(self.setup_frame, bg="#00080d")
         buttons.pack(pady=14)
 
-        tk.Button(buttons, text="▸ KAYDET",
+        tk.Button(buttons, text="> KAYDET",
                   command=self._save_api_key, bg=C_BG, fg=C_PRI,
                   activebackground="#003344", font=font_body_bold(13),
                   borderwidth=0, padx=24, pady=10).pack(side="left", padx=8)
@@ -2176,3 +2147,6 @@ class JarvisUI:
         else:
             self.set_state("LISTENING")
             self.write_log("SYS: JARVIS hazır. Dinliyorum...")
+
+
+
