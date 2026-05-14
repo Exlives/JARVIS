@@ -119,7 +119,10 @@ _ERROR_FILE = _SFX_DIR / "Error.mp3"
 
 class SoundManager:
     def __init__(self):
-        self._enabled = True
+        # Windows'ta MP3 loop sesleri dis oynatici acip kapattigi icin spam olusuyor.
+        # Bu platformda SFX'i varsayilan olarak kapatip UI'yi sessiz modda calistiriyoruz.
+        self._supported = (os.name != "nt")
+        self._enabled = self._supported
         self._ambient_proc = None
         self._volume = 0.20
         self._ambient_stop = None
@@ -159,6 +162,8 @@ class SoundManager:
                 pass
 
     def _start_afplay(self, path: Path, volume: float):
+        if not self._supported:
+            return _NullProc()
         player = "afplay" if os.name != "nt" else None
         if os.name == "nt":
             # MP3 calmayi Windows default player'a birakiyoruz; proses takibi icin null proc donuyoruz.
@@ -185,6 +190,8 @@ class SoundManager:
             self._all_sound_procs.discard(proc)
 
     def start_ambient(self):
+        if not self._supported:
+            return
         if not _HUD_FILE.exists():
             return
         with self._lock:
@@ -277,6 +284,8 @@ class SoundManager:
         volume_factor: float = 1.0,
         pause_ambient: bool = True,
     ):
+        if not self._supported:
+            return
         if not path.exists():
             return
         with self._lock:
@@ -356,9 +365,13 @@ class SoundManager:
             self.start_ambient()
 
     def play_startup(self):
+        if not self._supported:
+            return
         self._play_foreground(_START_FILE, tag="start", loop=False, volume_factor=0.95)
 
     def play_success(self):
+        if not self._supported:
+            return
         self._play_foreground(
             _DONE_FILE,
             tag="done",
@@ -368,9 +381,13 @@ class SoundManager:
         )
 
     def play_error(self):
+        if not self._supported:
+            return
         self._play_foreground(_ERROR_FILE, tag="error", loop=False, volume_factor=0.95)
 
     def start_thinking(self):
+        if not self._supported:
+            return
         self._play_foreground(
             _THINK_FILE,
             tag="think",
@@ -380,16 +397,24 @@ class SoundManager:
         )
 
     def stop_thinking(self):
+        if not self._supported:
+            return
         with self._lock:
             is_thinking = self._foreground_tag == "think"
         if is_thinking:
             self._stop_foreground()
 
     def toggle(self) -> bool:
+        if not self._supported:
+            self._enabled = False
+            return False
         self.set_enabled(not self._enabled)
         return self._enabled
 
     def set_enabled(self, enabled: bool):
+        if not self._supported:
+            self._enabled = False
+            return
         enabled = bool(enabled)
         with self._lock:
             self._enabled = enabled
