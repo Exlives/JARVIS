@@ -691,6 +691,29 @@ class JarvisLive:
         normalized = " ".join("".join(cleaned).split())
         return normalized.strip(), had_noise
 
+    @staticmethod
+    def _normalize_turkish_transcript(text: str) -> str:
+        cleaned = " ".join(str(text or "").split())
+        if not cleaned:
+            return cleaned
+        # Sık görülen parçalanmış Türkçe kelimeleri toparla.
+        replacements = {
+            "pe ki": "peki",
+            "gör üntü": "görüntü",
+            "gör üntüsü": "görüntüsü",
+            "ek ran": "ekran",
+            "uy gulama": "uygulama",
+            "a ç": "aç",
+        }
+        low = cleaned.lower()
+        for src, dst in replacements.items():
+            if src in low:
+                low = low.replace(src, dst)
+        # İlk harf büyükse korumaya çalış.
+        if cleaned and cleaned[0].isupper() and low:
+            low = low[0].upper() + low[1:]
+        return low
+
     def _build_config(self) -> types.LiveConnectConfig:
         memory  = load_memory()
         mem_str = format_memory_for_prompt(memory)
@@ -996,6 +1019,7 @@ class JarvisLive:
                         if sc.input_transcription and sc.input_transcription.text:
                             txt = sc.input_transcription.text.strip()
                             if txt:
+                                txt = self._normalize_turkish_transcript(txt)
                                 in_buf.append(txt)
                                 self.ui.mark_user_activity(True)
                                 self._awaiting_response = False
@@ -1005,6 +1029,7 @@ class JarvisLive:
 
                             full_in = " ".join(in_buf).strip()
                             if full_in:
+                                full_in = self._normalize_turkish_transcript(full_in)
                                 self.ui.write_log(f"Siz: {full_in}")
                             in_buf = []
 
