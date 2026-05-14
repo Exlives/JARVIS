@@ -508,6 +508,8 @@ class JarvisUI:
         self._mini_mode = False
         self._prev_fullscreen = True
         self._prev_geometry = self._window_geometry
+        self._app_started_at = time.time()
+        self._is_closing = False
 
         self._set_layout_metrics(self.W, self.H)
 
@@ -669,7 +671,7 @@ class JarvisUI:
 
         self.root.bind("<F4>",        lambda e: self._toggle_mute())
         self.root.bind("<Command-m>", lambda e: self._toggle_mute())
-        self.root.bind("<Escape>",    lambda e: self._shutdown())
+        self.root.bind("<Escape>",    lambda e: self._shutdown(source="escape"))
         self.root.bind("<F5>",        lambda e: self._toggle_pause())
         self.root.bind("<F11>",       lambda e: self._toggle_fullscreen())
         self.root.bind("<Command-f>", lambda e: self._toggle_fullscreen())
@@ -685,7 +687,7 @@ class JarvisUI:
         self._build_social_bar()
         self.root.after(120, self._enter_fullscreen)
         self._animate()
-        self.root.protocol("WM_DELETE_WINDOW", self._shutdown)
+        self.root.protocol("WM_DELETE_WINDOW", lambda: self._shutdown(source="wm_close"))
 
     def _force_startup_size(self):
         if self._fullscreen:
@@ -780,7 +782,7 @@ class JarvisUI:
         self._shutdown_canvas = tk.Canvas(
             self.root, width=BW, height=BH,
             bg=C_BG, highlightthickness=0, cursor="hand2")
-        self._shutdown_canvas.bind("<Button-1>", lambda e: self._shutdown())
+        self._shutdown_canvas.bind("<Button-1>", lambda e: self._shutdown(source="button"))
         self._draw_shutdown_button()
 
     def _draw_shutdown_button(self):
@@ -1382,10 +1384,21 @@ class JarvisUI:
         if self.on_pause_toggle:
             threading.Thread(target=self.on_pause_toggle, args=(self.paused,), daemon=True).start()
 
-    def _shutdown(self):
+    def _shutdown(self, source: str = "unknown"):
+        if self._is_closing:
+            return
+        # Açılışın hemen ardından gelen yanlış/istemsiz kapanma tetiklerini yumuşat.
+        if (time.time() - self._app_started_at) < 2.0 and source in {"escape", "wm_close"}:
+            self.write_debug(f"Kapanma isteği yok sayıldı (erken tetik): {source}", level="WARN")
+            return
+        self._is_closing = True
+        self.write_debug(f"Kapanma tetikleyicisi: {source}", level="WARN")
         self.sound.stop_all()
         self.write_log("SYS: JARVIS kapatılıyor...")
-        self.root.after(380, os._exit, 0)
+        try:
+            self.root.after(220, self.root.destroy)
+        except Exception:
+            os._exit(0)
 
     def _toggle_fullscreen(self):
         self._fullscreen = not self._fullscreen

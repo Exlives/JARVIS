@@ -22,6 +22,7 @@ from app_config import get_app_config_value
 from ui import JarvisUI
 from memory.memory_manager import load_memory, update_memory, delete_memory, format_memory_for_prompt
 from actions.open_app import open_app
+from actions.close_app import close_app
 from actions.sys_info  import sys_info
 from actions.calendar import get_calendar_events, add_calendar_event, delete_calendar_event
 from actions.reminders import get_reminders, add_reminder
@@ -65,6 +66,20 @@ TOOL_DECLARATIONS = [
                 "app_name": {
                     "type": "STRING",
                     "description": "Uygulama adı (örnek: 'Spotify', 'Chrome', 'Terminal')"
+                }
+            },
+            "required": ["app_name"]
+        }
+    },
+    {
+        "name": "close_app",
+        "description": "Windows'ta bir uygulamayı kapatır. Örnek: hesap makinesi, Discord, Steam.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "app_name": {
+                    "type": "STRING",
+                    "description": "Uygulama adı (örnek: 'hesap makinesi', 'Discord')"
                 }
             },
             "required": ["app_name"]
@@ -611,6 +626,17 @@ class JarvisLive:
         self.ui.write_log(f"Siz: {text}")
         lowered = self._normalize_turkish_transcript(text).lower()
         dense = lowered.replace(" ", "")
+        if ("hesap makinesi" in lowered or "calculator" in lowered or "hesapmakinesi" in dense):
+            if any(k in lowered for k in ("kapat", "kapa")) or "kapat" in dense:
+                result = close_app("hesap makinesi")
+                self.ui.write_log(f"JARVIS: {result}")
+                self.ui.set_state("LISTENING")
+                return
+            if any(k in lowered for k in ("aç", "ac")) or "ac" in dense:
+                result = open_app("hesap makinesi")
+                self.ui.write_log(f"JARVIS: {result}")
+                self.ui.set_state("LISTENING")
+                return
         # Tek kelimelik/çok kısa medya kontrol komutlarını doğrudan yakala.
         compact = " ".join(lowered.split())
         hard_pause_cmds = {"durdur", "duraklat", "müziği durdur", "muzigi durdur", "müziği kapat", "muzigi kapat"}
@@ -881,6 +907,11 @@ class JarvisLive:
             "ek ran": "ekran",
             "uy gulama": "uygulama",
             "a ç": "aç",
+            "he sap": "hesap",
+            "maki nesi": "makinesi",
+            "kapa t": "kapat",
+            "te krar": "tekrar",
+            "ha yır": "hayır",
         }
         low = cleaned.lower()
         for src, dst in replacements.items():
@@ -980,6 +1011,13 @@ class JarvisLive:
                     # başarılıysa bekleyen eşlemeyi temizle
                     if self._pending_app_alias_for_path == requested.lower():
                         self._pending_app_alias_for_path = ""
+
+            elif name == "close_app":
+                requested = str(args.get("app_name", "") or "").strip()
+                r = await loop.run_in_executor(
+                    None, lambda: close_app(requested)
+                )
+                result = r or f"{requested} kapatıldı."
 
             elif name == "sys_info":
                 self._focus_ui_section_for_tool(name, args)
@@ -1477,7 +1515,10 @@ def main():
             print("\nKapatılıyor...")
 
     threading.Thread(target=runner, daemon=True).start()
-    ui.root.mainloop()
+    try:
+        ui.root.mainloop()
+    finally:
+        print("[JARVIS] UI mainloop sonlandı.")
 
 
 if __name__ == "__main__":
