@@ -1,6 +1,6 @@
-"""
-Kalıcı bellek — JSON dosyasına kaydedilir.
-Alp Ünlü tarafından yapılmıştır — @alppunlu
+﻿"""
+Kalici bellek - JSON dosyasina kaydedilir.
+Exlives
 """
 
 import json
@@ -46,7 +46,7 @@ def _normalize_text(text: str) -> str:
     text = (text or "").strip().casefold()
     text = unicodedata.normalize("NFKD", text)
     text = "".join(ch for ch in text if not unicodedata.combining(ch))
-    text = text.replace("ı", "i")
+    text = text.replace(chr(305), "i")
     return " ".join(text.split())
 
 
@@ -136,7 +136,7 @@ def delete_memory(category: str = "", key: str = "", match_text: str = "") -> st
 def format_memory_for_prompt(memory: dict) -> str:
     if not memory:
         return ""
-    lines = ["[KULLANICI HAKKINDA BİLGİLER]"]
+    lines = ["[KULLANICI HAKKINDA BILGILER]"]
     for category, items in memory.items():
         if isinstance(items, dict):
             for key, val in items.items():

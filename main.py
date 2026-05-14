@@ -1,8 +1,8 @@
 ﻿#!/usr/bin/env python3
 """
-JARVIS macOS â€” Gercek zamanli sesli yardimci cekirdegi
+JARVIS Windows - Gercek zamanli sesli yardimci cekirdegi
 Exlives
-macOS ortamina uyarlanmis calisma akisi
+Windows ortamina uyarlanmis calisma akisi
 """
 
 import asyncio
@@ -32,35 +32,36 @@ from actions.weather   import get_weather_summary
 from actions.screen_vision import analyze_screen
 from actions.youtube_stats import get_youtube_channel_report
 
-# â”€â”€ Paths â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Paths
 BASE_DIR        = Path(__file__).resolve().parent
 PROMPT_PATH     = BASE_DIR / "core" / "prompt.txt"
 
 
 CONTROL_TOKEN_RE = re.compile(r"<ctrl\d+>", re.IGNORECASE)
 
-# â”€â”€ Model â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Model
 LIVE_MODEL = "models/gemini-2.5-flash-native-audio-latest"
 
-# â”€â”€ Audio â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Audio
 FORMAT           = pyaudio.paInt16
 CHANNELS         = 1
 SEND_SAMPLE_RATE = 16000
 RECV_SAMPLE_RATE = 24000
 CHUNK_SIZE       = 1024
 pya              = pyaudio.PyAudio()
+AUDIO_IDLE_RESET_SECONDS = 0.35
 
-# â”€â”€ Tool tanÄ±mlarÄ± â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+# Tool tanimlari
 TOOL_DECLARATIONS = [
     {
         "name": "open_app",
-        "description": "macOS'ta herhangi bir uygulamayÄ± aÃ§ar. Spotify, Safari, Terminal, Finder, VS Code vb.",
+        "description": "Windows'ta bir uygulama acar. Spotify, Chrome, Terminal, Explorer, VS Code vb.",
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "app_name": {
                     "type": "STRING",
-                    "description": "Uygulama adÄ± (Ã¶rn. 'Spotify', 'Safari', 'Terminal')"
+                    "description": "Uygulama adi (ornek: 'Spotify', 'Chrome', 'Terminal')"
                 }
             },
             "required": ["app_name"]
@@ -68,7 +69,7 @@ TOOL_DECLARATIONS = [
     },
     {
         "name": "sys_info",
-        "description": "Sistem bilgisi alÄ±r: pil durumu, CPU, RAM, disk, saat, tarih, aÄŸ baÄŸlantÄ±sÄ±.",
+        "description": "Sistem bilgisi alir: pil durumu, CPU, RAM, disk, saat, tarih, ag baglantisi.",
         "parameters": {
             "type": "OBJECT",
             "properties": {
@@ -259,26 +260,26 @@ TOOL_DECLARATIONS = [
     },
     {
         "name": "browser_control",
-        "description": "TarayÄ±cÄ±da URL aÃ§ar, Google'da arama yapar veya YouTube'da ilk sonucu doÄŸrudan oynatÄ±r.",
+        "description": "Tarayicida URL acar, Google'da arama yapar veya YouTube'da ilk sonucu dogrudan oynatir.",
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "action": {"type": "STRING", "description": "open_url | search | play_youtube"},
-                "url":    {"type": "STRING", "description": "AÃ§Ä±lacak URL (open_url iÃ§in)"},
-                "query":  {"type": "STRING", "description": "Arama sorgusu (search veya play_youtube iÃ§in)"}
+                "url":    {"type": "STRING", "description": "Acilacak URL (open_url icin)"},
+                "query":  {"type": "STRING", "description": "Arama sorgusu (search veya play_youtube icin)"}
             },
             "required": ["action"]
         }
     },
     {
         "name": "shell_run",
-        "description": "macOS terminal komutu Ã§alÄ±ÅŸtÄ±rÄ±r. Dosya iÅŸlemleri, sistem yÃ¶netimi.",
+        "description": "Terminal komutu calistirir. Dosya islemleri ve sistem yonetimi icin kullanilir.",
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "command": {
                     "type": "STRING",
-                    "description": "Ã‡alÄ±ÅŸtÄ±rÄ±lacak bash komutu"
+                    "description": "Calistirilacak komut"
                 }
             },
             "required": ["command"]
@@ -287,17 +288,17 @@ TOOL_DECLARATIONS = [
     {
         "name": "play_media",
         "description": (
-            "YouTube, Spotify veya Apple Music/Music uygulamasÄ±nda ÅŸarkÄ±, mÃ¼zik veya video aÃ§ar. "
-            "KullanÄ±cÄ± belirli bir platform sÃ¶ylerse onu kullan. "
-            "Belirtmezse uygun olanÄ± dene. "
-            "KullanÄ±cÄ± 'Ã§al', 'oynat', 'aÃ§' diyorsa autoplay=true kullan."
+            "YouTube, Spotify veya Music uygulamasinda sarki, muzik veya video acar. "
+            "Kullanici belirli bir platform soylerse onu kullan. "
+            "Belirtmezse uygun olani dene. "
+            "Kullanici 'cal', 'oynat', 'ac' diyorsa autoplay=true kullan."
         ),
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "query": {
                     "type": "STRING",
-                    "description": "ÅarkÄ±, sanatÃ§Ä±, albÃ¼m veya video arama ifadesi"
+                    "description": "Sarki, sanatci, album veya video arama ifadesi"
                 },
                 "provider": {
                     "type": "STRING",
@@ -305,7 +306,7 @@ TOOL_DECLARATIONS = [
                 },
                 "autoplay": {
                     "type": "BOOLEAN",
-                    "description": "true ise mÃ¼mkÃ¼nse doÄŸrudan oynatÄ±r"
+                    "description": "true ise mumkunse dogrudan oynatir"
                 }
             },
             "required": ["query"]
@@ -368,7 +369,7 @@ TOOL_DECLARATIONS = [
     },
     {
         "name": "save_memory",
-        "description": "KullanÄ±cÄ± hakkÄ±nda Ã¶nemli bilgiyi kalÄ±cÄ± belleÄŸe kaydeder. Ä°sim, tercihler, projeler vb. duyunca sessizce Ã§aÄŸÄ±r.",
+        "description": "Kullanici hakkinda onemli bilgiyi kalici bellege kaydeder. Isim, tercihler ve projeler icin kullanilir.",
         "parameters": {
             "type": "OBJECT",
             "properties": {
@@ -376,8 +377,8 @@ TOOL_DECLARATIONS = [
                     "type": "STRING",
                     "description": "identity | preferences | projects | notes"
                 },
-                "key":   {"type": "STRING", "description": "KÄ±sa anahtar (Ã¶rn. 'name')"},
-                "value": {"type": "STRING", "description": "DeÄŸer (Ä°ngilizce)"}
+                "key":   {"type": "STRING", "description": "Kisa anahtar (ornek: 'name')"},
+                "value": {"type": "STRING", "description": "Deger"}
             },
             "required": ["category", "key", "value"]
         }
@@ -410,35 +411,35 @@ TOOL_DECLARATIONS = [
     {
         "name": "send_whatsapp_message",
         "description": (
-            "WhatsApp Desktop veya WhatsApp Web Ã¼zerinden mesaj taslaÄŸÄ± aÃ§ar veya mesajÄ± gÃ¶nderir. "
-            "KiÅŸi adÄ± veya telefon numarasÄ±yla Ã§alÄ±ÅŸabilir. "
-            "Telefon numarasÄ± verilmemiÅŸse kiÅŸi adÄ±nÄ± Ã¶nce kayÄ±tlÄ± WhatsApp kiÅŸileri ve iÃ§e aktarÄ±lan telefon rehberinde ara. "
-            "KullanÄ±cÄ± 'gÃ¶nder', 'yolla', 'ile', 'hemen gÃ¶nder' gibi aÃ§Ä±k bir gÃ¶nderme niyeti sÃ¶ylÃ¼yorsa "
+            "WhatsApp Desktop veya WhatsApp Web uzerinden mesaj taslagi acar veya mesaji gonderir. "
+            "Kisi adi veya telefon numarasiyla calisabilir. "
+            "Telefon numarasi verilmemisse kisi adini once kayitli WhatsApp kisileri ve ice aktarlan telefon rehberinde ara. "
+            "Kullanici 'gonder', 'yolla', 'ile', 'hemen gonder' gibi acik bir gonderme niyeti soylerse "
             "ekstra onay istemeden send_now=true kullan. "
-            "YalnÄ±zca 'hazÄ±rla', 'taslak aÃ§', 'yaz ama gÃ¶nderme' diyorsa send_now=false kullan."
+            "Yalnizca 'hazirla', 'taslak ac', 'yaz ama gonderme' diyorsa send_now=false kullan."
         ),
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "recipient_name": {
                     "type": "STRING",
-                    "description": "KiÅŸi adÄ±. Ã–rn: 'Anne', 'Ahmet', 'Ece'"
+                    "description": "Kisi adi. Ornek: 'Anne', 'Ahmet', 'Ece'"
                 },
                 "phone_number": {
                     "type": "STRING",
-                    "description": "UluslararasÄ± telefon numarasÄ±. Ã–rn: +905551112233"
+                    "description": "Uluslararasi telefon numarasi. Ornek: +905551112233"
                 },
                 "message": {
                     "type": "STRING",
-                    "description": "GÃ¶nderilecek mesaj iÃ§eriÄŸi"
+                    "description": "Gonderilecek mesaj icerigi"
                 },
                 "app_target": {
                     "type": "STRING",
-                    "description": "desktop | web | auto. VarsayÄ±lan auto, tercihen desktop."
+                    "description": "desktop | web | auto. Varsayilan auto, tercihen desktop."
                 },
                 "send_now": {
                     "type": "BOOLEAN",
-                    "description": "true ise sohbet aÃ§Ä±ldÄ±ktan sonra mesajÄ± otomatik gÃ¶nderir"
+                    "description": "true ise sohbet acildiktan sonra mesaji otomatik gonderir"
                 }
             },
             "required": ["message"]
@@ -447,23 +448,23 @@ TOOL_DECLARATIONS = [
     {
         "name": "save_whatsapp_contact",
         "description": (
-            "SÄ±k kullanÄ±lan bir WhatsApp kiÅŸisini adÄ± ve telefon numarasÄ±yla kalÄ±cÄ± belleÄŸe kaydeder. "
-            "KullanÄ±cÄ± bir kiÅŸiyi 'annem', 'Ahmet', 'iÅŸ ortaÄŸÄ±m' gibi tekrar kullanÄ±lacak ÅŸekilde tanÄ±mladÄ±ÄŸÄ±nda kullan."
+            "Sik kullanilan bir WhatsApp kisisini adi ve telefon numarasiyla kalici bellege kaydeder. "
+            "Kullanici bir kisiyi 'annem', 'Ahmet', 'is ortagim' gibi tekrar kullanilacak sekilde tanimladiginda kullan."
         ),
         "parameters": {
             "type": "OBJECT",
             "properties": {
                 "display_name": {
                     "type": "STRING",
-                    "description": "Kaydedilecek kiÅŸi adÄ±. Ã–rn: 'Annem', 'Ahmet'"
+                    "description": "Kaydedilecek kisi adi. Ornek: 'Annem', 'Ahmet'"
                 },
                 "phone_number": {
                     "type": "STRING",
-                    "description": "UluslararasÄ± telefon numarasÄ±. Ã–rn: +905551112233"
+                    "description": "Uluslararasi telefon numarasi. Ornek: +905551112233"
                 },
                 "aliases": {
                     "type": "STRING",
-                    "description": "VirgÃ¼lle ayrÄ±lmÄ±ÅŸ alternatif hitaplar. Ã–rn: 'anne, annem, mom'"
+                    "description": "Virgulle ayrilmis alternatif hitaplar. Ornek: 'anne, annem, mom'"
                 }
             },
             "required": ["display_name", "phone_number"]
@@ -481,9 +482,9 @@ def load_system_prompt() -> str:
         return PROMPT_PATH.read_text(encoding="utf-8")
     except Exception:
         return (
-            "Sen JARVIS'sin â€” macOS'ta Ã§alÄ±ÅŸan kiÅŸisel AI asistanÄ±. "
-            "TÃ¼rkÃ§e konuÅŸ. KÄ±sa ve net yanÄ±tlar ver. "
-            "AraÃ§larÄ± kullanarak gÃ¶revleri tamamla, asla taklit etme."
+            "Sen JARVIS'sin. Windows'ta calisan kisisel AI asistansin. "
+            "Turkce konus. Kisa ve net yanitlar ver. "
+            "Araclari kullanarak gorevleri tamamla, taklit etme."
         )
 
 
@@ -523,7 +524,7 @@ class JarvisLive:
             return
         self.ui.write_log(f"Siz: {text}")
         if not self._loop or not self.session:
-            self.ui.write_log("ERR: JARVIS baÄŸlantÄ±sÄ± henÃ¼z hazÄ±r deÄŸil.")
+            self.ui.write_log("ERR: JARVIS baglantisi henuz hazir degil.")
             return
         asyncio.run_coroutine_threadsafe(
             self.session.send_client_content(
@@ -558,7 +559,7 @@ class JarvisLive:
 
     def speak_error(self, tool_name: str, error: str):
         short = str(error)[:120]
-        self.ui.write_log(f"ERR: {tool_name} â€” {short}")
+        self.ui.write_log(f"ERR: {tool_name} - {short}")
         self.ui.write_debug(f"{tool_name}: {short}", level="ERROR")
         self.ui.set_state("ERROR")
 
@@ -571,19 +572,19 @@ class JarvisLive:
             "hata",
             "error",
             "alinamadi",
-            "alÄ±namadÄ±",
+            "alinamadi",
             "bulunamadi",
-            "bulunamadÄ±",
+            "bulunamadi",
             "acilamadi",
-            "aÃ§Ä±lamadÄ±",
+            "acilamadi",
             "tamamlanamadi",
-            "tamamlanamadÄ±",
+            "tamamlanamadi",
             "gecersiz",
-            "geÃ§ersiz",
+            "gecersiz",
             "izin gerekiyor",
             "izin gerekli",
             "baglanti",
-            "baÄŸlantÄ±",
+            "baglanti",
             "gerekli.",
         )
         return any(marker in text for marker in error_markers)
@@ -603,7 +604,7 @@ class JarvisLive:
         if tool_name == "send_whatsapp_message":
             text = str(result or "").lower()
             if bool(args.get("send_now", False)):
-                return "gÃ¶nderildi" in text or "gonderildi" in text
+                return "gonderildi" in text
             return False
 
         return False
@@ -629,7 +630,7 @@ class JarvisLive:
         mem_str = format_memory_for_prompt(memory)
         sys_p   = load_system_prompt()
         now     = datetime.datetime.now()
-        time_ctx = f"[ÅU ANKÄ° ZAMAN]\n{now.strftime('%A, %d %B %Y â€” %H:%M')}\n\n"
+        time_ctx = f"[SU ANKI ZAMAN]\n{now.strftime('%A, %d %B %Y - %H:%M')}\n\n"
 
         parts = [time_ctx]
         if mem_str:
@@ -654,7 +655,7 @@ class JarvisLive:
     async def _execute_tool(self, fc) -> types.FunctionResponse:
         name = fc.name
         args = dict(fc.args or {})
-        print(f"[JARVIS] ğŸ”§ {name} {args}")
+        print(f"[JARVIS] TOOL {name} {args}")
         self.ui.set_state("THINKING")
 
         loop   = asyncio.get_event_loop()
@@ -668,7 +669,7 @@ class JarvisLive:
                 val = args.get("value", "")
                 if key and val:
                     update_memory({cat: {key: {"value": val}}})
-                    print(f"[Memory] ğŸ’¾ {cat}/{key} = {val}")
+                    print(f"[Memory] SAVE {cat}/{key} = {val}")
                 result = "ok"
 
             elif name == "delete_memory":
@@ -681,13 +682,13 @@ class JarvisLive:
             elif name == "open_app":
                 r = await loop.run_in_executor(
                     None, lambda: open_app(args.get("app_name", "")))
-                result = r or f"{args.get('app_name')} aÃ§Ä±ldÄ±."
+                result = r or f"{args.get('app_name')} acildi."
 
             elif name == "sys_info":
                 self._focus_ui_section_for_tool(name, args)
                 r = await loop.run_in_executor(
                     None, lambda: sys_info(args.get("query", "all")))
-                result = r or "Bilgi alÄ±ndÄ±."
+                result = r or "Bilgi alindi."
 
             elif name == "get_weather":
                 self._focus_ui_section_for_tool(name, args)
@@ -769,7 +770,7 @@ class JarvisLive:
             elif name == "shell_run":
                 r = await loop.run_in_executor(
                     None, lambda: shell_run(args.get("command", "")))
-                result = r or "Komut Ã§alÄ±ÅŸtÄ±rÄ±ldÄ±."
+                result = r or "Komut calistirildi."
 
             elif name == "play_media":
                 r = await loop.run_in_executor(
@@ -780,7 +781,7 @@ class JarvisLive:
                         bool(args.get("autoplay", True)),
                     ),
                 )
-                result = r or "Medya oynatma baÅŸlatÄ±ldÄ±."
+                result = r or "Medya oynatma baslatildi."
 
             elif name == "get_youtube_channel_report":
                 r = await loop.run_in_executor(
@@ -814,7 +815,7 @@ class JarvisLive:
                         args.get("app_target", "auto"),
                     ),
                 )
-                result = r or "WhatsApp iÅŸlemi tamamlandÄ±."
+                result = r or "WhatsApp islemi tamamlandi."
 
             elif name == "save_whatsapp_contact":
                 r = await loop.run_in_executor(
@@ -825,10 +826,10 @@ class JarvisLive:
                         args.get("aliases", ""),
                     ),
                 )
-                result = r or "WhatsApp kiÅŸisi kaydedildi."
+                result = r or "WhatsApp kisisi kaydedildi."
 
             else:
-                result = f"Bilinmeyen araÃ§: {name}"
+                result = f"Bilinmeyen arac: {name}"
 
         except Exception as e:
             result = f"Hata: {e}"
@@ -846,7 +847,7 @@ class JarvisLive:
         if not tool_failed and not self.ui.muted:
             self.ui.set_state("LISTENING")
 
-        print(f"[JARVIS] ğŸ“¤ {name} â†’ {str(result)[:80]}")
+        print(f"[JARVIS] RESULT {name} -> {str(result)[:80]}")
         return types.FunctionResponse(
             id=fc.id, name=name,
             response={"result": result}
@@ -858,7 +859,7 @@ class JarvisLive:
             await self.session.send_realtime_input(media=msg)
 
     async def _listen_audio(self):
-        print("[JARVIS] ğŸ¤ Mikrofon baÅŸladÄ±")
+        print("[JARVIS] Mikrofon basladi")
         stream = await asyncio.to_thread(
             pya.open,
             format=FORMAT, channels=CHANNELS,
@@ -874,13 +875,13 @@ class JarvisLive:
                 if not jarvis_speaking and not self.ui.muted and not self._paused:
                     await self.out_queue.put({"data": data, "mime_type": "audio/pcm"})
         except Exception as e:
-            print(f"[JARVIS] âŒ Mikrofon: {e}")
+            print(f"[JARVIS] Mikrofon hatasi: {e}")
             raise
         finally:
             stream.close()
 
     async def _receive_audio(self):
-        print("[JARVIS] ğŸ‘‚ AlÄ±m baÅŸladÄ±")
+        print("[JARVIS] Veri alimi basladi")
         out_buf, in_buf = [], []
         output_noise = False
         output_noise_samples = []
@@ -924,11 +925,11 @@ class JarvisLive:
                                 self.ui.write_log(f"JARVIS: {full_out}")
                                 if output_noise_samples:
                                     self.ui.write_debug(
-                                        "KÄ±smen filtrelenen ses transcripti: " + " | ".join(output_noise_samples),
+                                        "Kismen filtrelenen ses transkripti: " + " | ".join(output_noise_samples),
                                         level="WARN",
                                     )
                             elif output_noise:
-                                self.ui.write_log("ERR: JARVIS sesli yanÄ±tÄ±nÄ± Ã§Ã¶zÃ¼mlerken bir hata oluÅŸtu.")
+                                self.ui.write_log("ERR: JARVIS sesli yanitini cozumlerken bir hata olustu.")
                                 if output_noise_samples:
                                     self.ui.write_debug(
                                         "Filtrelenen ham transcript: " + " | ".join(output_noise_samples),
@@ -942,19 +943,19 @@ class JarvisLive:
                     if response.tool_call:
                         fn_responses = []
                         for fc in response.tool_call.function_calls:
-                            print(f"[JARVIS] ğŸ“ {fc.name}")
+                            print(f"[JARVIS] CALL {fc.name}")
                             fr = await self._execute_tool(fc)
                             fn_responses.append(fr)
                         await self.session.send_tool_response(
                             function_responses=fn_responses)
 
         except Exception as e:
-            print(f"[JARVIS] âŒ AlÄ±m: {e}")
+            print(f"[JARVIS] Alim hatasi: {e}")
             traceback.print_exc()
             raise
 
     async def _play_audio(self):
-        print("[JARVIS] ğŸ”Š Ses Ã§alma baÅŸladÄ±")
+        print("[JARVIS] Ses calma basladi")
         stream = await asyncio.to_thread(
             pya.open,
             format=FORMAT, channels=CHANNELS,
@@ -962,11 +963,19 @@ class JarvisLive:
         )
         try:
             while True:
-                chunk = await self.audio_in_queue.get()
+                try:
+                    chunk = await asyncio.wait_for(
+                        self.audio_in_queue.get(),
+                        timeout=AUDIO_IDLE_RESET_SECONDS,
+                    )
+                except asyncio.TimeoutError:
+                    # Ses cikisi durduysa speaking state'i sifirla ki mikrofon tekrar acilsin.
+                    self.set_speaking(False)
+                    continue
                 self.set_speaking(True)
                 await asyncio.to_thread(stream.write, chunk)
         except Exception as e:
-            print(f"[JARVIS] âŒ Ses: {e}")
+            print(f"[JARVIS] Ses hatasi: {e}")
             raise
         finally:
             self.set_speaking(False)
@@ -979,13 +988,13 @@ class JarvisLive:
         )
 
         while True:
-            # DuraklatÄ±lmÄ±ÅŸsa baÄŸlanma, bekle
+            # Duraklatilmissa baglanma, bekle
             if self._paused:
                 await asyncio.sleep(1)
                 continue
 
             try:
-                print("[JARVIS] ğŸ”Œ BaÄŸlanÄ±yor...")
+                print("[JARVIS] Baglaniyor...")
                 self.ui.set_state("THINKING")
                 config = self._build_config()
 
@@ -998,9 +1007,9 @@ class JarvisLive:
                     self.audio_in_queue = asyncio.Queue()
                     self.out_queue      = asyncio.Queue(maxsize=10)
 
-                    print("[JARVIS] âœ… BaÄŸlandÄ±.")
+                    print("[JARVIS] Baglandi.")
                     self.ui.set_state("LISTENING")
-                    self.ui.write_log("SYS: JARVIS hazÄ±r. Dinliyorum...")
+                    self.ui.write_log("SYS: JARVIS hazir. Dinliyorum...")
 
                     tg.create_task(self._send_realtime())
                     tg.create_task(self._listen_audio())
@@ -1008,12 +1017,12 @@ class JarvisLive:
                     tg.create_task(self._play_audio())
 
             except Exception as e:
-                print(f"[JARVIS] âš ï¸ {e}")
+                print(f"[JARVIS] Hata: {e}")
                 traceback.print_exc()
                 self.set_speaking(False)
-                self.ui.write_log(f"ERR: JARVIS baglantisi kesildi veya internete ulasilamiyor â€” {e}")
+                self.ui.write_log(f"ERR: JARVIS baglantisi kesildi veya internete ulasilamiyor - {e}")
                 self.ui.set_state("ERROR")
-                print("[JARVIS] ğŸ”„ 3 saniyede yeniden baÄŸlanÄ±yor...")
+                print("[JARVIS] 3 saniye sonra yeniden baglaniyor...")
                 await asyncio.sleep(3)
 
 
@@ -1029,7 +1038,7 @@ def main():
         try:
             asyncio.run(jarvis.run())
         except KeyboardInterrupt:
-            print("\nğŸ”´ KapatÄ±lÄ±yor...")
+            print("\nKapatiliyor...")
 
     threading.Thread(target=runner, daemon=True).start()
     ui.root.mainloop()
@@ -1037,5 +1046,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
 
 

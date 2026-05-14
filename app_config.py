@@ -1,4 +1,4 @@
-# Alp Ünlü tarafından yapılmıştır — @alppunlu
+﻿# Exlives
 from __future__ import annotations
 
 import json

@@ -1,5 +1,5 @@
 ﻿"""
-Basit hava durumu ozeti â€” uzaktaki bir servis uzerinden calisir.
+Basit hava durumu ozeti - uzaktaki bir servis uzerinden calisir.
 Exlives
 
 Varsayilan konum:
@@ -39,13 +39,14 @@ def get_weather_summary(location: str | None = None) -> str:
         if feels_like and feels_like != temp_c:
             parts.append(f"hissedilen {feels_like} derece")
         if humidity:
-            parts.append(f"nem yÃ¼zde {humidity}")
+            parts.append(f"nem yuzde {humidity}")
 
         if not parts:
-            return "Hava durumu bilgisi ÅŸu anda alÄ±namadÄ±."
+            return "Hava durumu bilgisi su anda alinamadi."
 
-        return f"{target} iÃ§in hava durumu: " + ", ".join(parts) + "."
+        return f"{target} icin hava durumu: " + ", ".join(parts) + "."
     except Exception:
-        return "Hava durumu bilgisi ÅŸu anda alÄ±namadÄ±."
+        return "Hava durumu bilgisi su anda alinamadi."
+
 
 
