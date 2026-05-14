@@ -3,6 +3,7 @@ Tarayici kontrolu - Windows uyumlu webbrowser tabanli acma.
 """
 
 import re
+import subprocess
 import urllib.parse
 import webbrowser
 
@@ -97,5 +98,43 @@ def browser_control(action: str, url: str = None, query: str = None) -> str:
         watch_url = f"https://music.youtube.com/watch?v={video_id}&autoplay=1"
         _open(watch_url)
         return f"YouTube Music'te oynatiliyor: {query}"
+
+    if action in ("close_domain_tab", "close_tab"):
+        target = (query or url or "").strip().lower()
+        if not target:
+            return "Kapatılacak sekme alan adı belirtilmedi."
+        # Tarayıcıyı kapatmadan, hedef sekme başlığını öne getirip Ctrl+W gönder.
+        ps_script = rf"""
+$ws = New-Object -ComObject WScript.Shell
+$titles = @(
+    "GitHub",
+    "github.com",
+    "Google Chrome",
+    "Microsoft Edge",
+    "Firefox"
+)
+$ok = $false
+foreach ($t in $titles) {{
+    if ($ws.AppActivate($t)) {{
+        Start-Sleep -Milliseconds 120
+        $ws.SendKeys("^w")
+        $ok = $true
+        break
+    }}
+}}
+if ($ok) {{ exit 0 }} else {{ exit 1 }}
+"""
+        try:
+            res = subprocess.run(
+                ["powershell", "-NoProfile", "-Command", ps_script],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                check=False,
+            )
+            if res.returncode == 0:
+                return f"{target} sekmesi kapatıldı."
+            return f"{target} sekmesi bulunamadı."
+        except Exception as exc:
+            return f"Sekme kapatılamadı: {exc}"
 
     return f"Bilinmeyen eylem: {action}"

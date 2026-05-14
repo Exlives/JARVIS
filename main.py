@@ -86,6 +86,20 @@ TOOL_DECLARATIONS = [
         }
     },
     {
+        "name": "set_background_mode",
+        "description": "JARVIS arayuzunu mini/arka plan moduna alir veya normal pencereye geri dondurur.",
+        "parameters": {
+            "type": "OBJECT",
+            "properties": {
+                "mini_mode": {
+                    "type": "BOOLEAN",
+                    "description": "true ise mini/arka plan modu, false ise normal pencere."
+                }
+            },
+            "required": ["mini_mode"]
+        }
+    },
+    {
         "name": "sys_info",
         "description": "Sistem bilgisi alır: pil durumu, CPU, RAM, disk, saat, tarih, ağ bağlantısı.",
         "parameters": {
@@ -278,13 +292,13 @@ TOOL_DECLARATIONS = [
     },
     {
         "name": "browser_control",
-        "description": "Tarayıcıda URL açar, Google'da arama yapar, YouTube'da ilk sonucu doğrudan oynatır veya YouTube Music araması açar.",
+        "description": "Tarayıcıda URL açar, Google'da arama yapar, YouTube'da ilk sonucu doğrudan oynatır, YouTube Music araması açar veya sekme kapatır.",
         "parameters": {
             "type": "OBJECT",
             "properties": {
-                "action": {"type": "STRING", "description": "open_url | search | play_youtube | play_youtube_music"},
+                "action": {"type": "STRING", "description": "open_url | search | play_youtube | play_youtube_music | close_domain_tab"},
                 "url":    {"type": "STRING", "description": "Açılacak URL (open_url için)"},
-                "query":  {"type": "STRING", "description": "Arama sorgusu (search veya play_youtube için)"}
+                "query":  {"type": "STRING", "description": "Arama sorgusu veya alan adı (search/play/close için)"}
             },
             "required": ["action"]
         }
@@ -562,6 +576,7 @@ class JarvisLive:
         self.ui.on_pause_toggle  = self._on_pause_toggle
         self.ui.on_voice_change  = self._on_voice_change
         self.ui.on_effects_state_change = self._on_effects_state_change
+        self.ui.on_shutdown_request = self._on_shutdown_request
         self._paused             = False
         self._suppress_next_disconnect_error = False
         self._pending_voice_announcement = ""
@@ -571,6 +586,216 @@ class JarvisLive:
         self._pending_app_alias_for_path = ""
         self._last_media_action_ts = 0.0
         self._last_media_provider = "auto"
+        self._shutdown_confirm_pending_until = 0.0
+        self._suppress_model_output_once = False
+        self._suppress_model_output_until = 0.0
+        self._block_mode_switch_until = 0.0
+        self._ignore_model_audio_until = 0.0
+        self._ignore_mic_until = 0.0
+        self._shutdown_close_scheduled = False
+        self._stop_requested = threading.Event()
+
+    def request_stop(self):
+        self._stop_requested.set()
+        if self.out_queue is not None:
+            try:
+                self.out_queue.put_nowait(None)
+            except Exception:
+                pass
+        if self._loop:
+            try:
+                asyncio.run_coroutine_threadsafe(self._interrupt_audio(), self._loop)
+            except Exception:
+                pass
+
+    def _on_shutdown_request(self, source: str = "unknown"):
+        # Aynı kapanış isteğinin kısa aralıkta iki kez tetiklenmesini engelle.
+        if self._shutdown_confirm_pending_until > time.time():
+            return
+        self._shutdown_confirm_pending_until = time.time() + 25.0
+        self._shutdown_close_scheduled = False
+        self._suppress_model_output_until = 0.0
+        self._ignore_model_audio_until = 0.0
+        msg = "Kendimi kapatıyorum, onaylıyor musun?"
+        self.ui.write_log(f"JARVIS: {msg}")
+        # Onay akışı tercihini kalıcı hafızada tut.
+        try:
+            update_memory(
+                {
+                    "preferences": {
+                        "shutdown_confirm_flow": {
+                            "value": "Kapatmadan önce 'Kendimi kapatıyorum, onaylıyor musun?' diye sor."
+                        }
+                    }
+                }
+            )
+        except Exception:
+            pass
+        if self._loop:
+            try:
+                asyncio.run_coroutine_threadsafe(self._interrupt_audio(), self._loop)
+            except Exception:
+                pass
+        # Kapat düğmesinde yerel TTS yok: sadece model (AI sesi) konuşsun.
+        if source in {"button", "wm_close", "escape"} and self._loop:
+            try:
+                asyncio.run_coroutine_threadsafe(
+                    self._ask_shutdown_confirmation_via_ai(),
+                    self._loop,
+                )
+            except Exception:
+                pass
+
+    async def _ask_shutdown_confirmation_via_ai(self):
+        if not self.session:
+            return
+        try:
+            await self.session.send_client_content(
+                turns={
+                    "parts": [
+                        {
+                            "text": "Sadece şu cümleyi söyle: 'Kendimi kapatıyorum, onaylıyor musun?'"
+                        }
+                    ]
+                },
+                turn_complete=True,
+            )
+        except Exception:
+            pass
+
+    async def _shutdown_with_farewell(self, source: str):
+        if self._shutdown_close_scheduled:
+            return
+        self._shutdown_close_scheduled = True
+        self._shutdown_confirm_pending_until = 0.0
+        self.ui.write_log("JARVIS: Onay alındı, güle güle.")
+        try:
+            if self.session:
+                await self.session.send_client_content(
+                    turns={"parts": [{"text": "Sadece şu cümleyi söyle: 'Güle güle.'"}]},
+                    turn_complete=True,
+                )
+                await asyncio.sleep(0.9)
+        except Exception:
+            pass
+        self.ui.shutdown_confirmed(source=source)
+
+    def _is_shutdown_confirm_phrase(self, lowered: str, dense: str) -> bool:
+        phrases = (
+            "evet",
+            "onaylıyorum",
+            "onayliyorum",
+            "onay",
+            "onay veriyorum",
+            "onaylıyorum kapat",
+            "onayliyorum kapat",
+            "tamam",
+            "tamam kapat",
+            "olur",
+            "kapatabilirsin",
+            "kapat gitsin",
+            "evet kapat",
+            "kapatabilirsin",
+            "kapat",
+        )
+        dense_phrases = (
+            "evet",
+            "onayliyorum",
+            "onayveriyorum",
+            "tamam",
+            "tamamkapat",
+            "evetkapat",
+            "olur",
+            "kapatabilirsin",
+            "kapatgitsin",
+        )
+        return any(p in lowered for p in phrases) or any(p in dense for p in dense_phrases)
+
+    def _is_shutdown_request_phrase(self, lowered: str, dense: str) -> bool:
+        direct = (
+            "kendini kapat",
+            "kendimi kapat",
+            "kendi ni kapat",
+            "kendi mi kapat",
+            "kendini kapatma",
+            "kendimi kapatma",
+            "jarvis kapat",
+            "jarvisi kapat",
+            "jarvisi kapat",
+            "programı kapat",
+            "programi kapat",
+            "programı kapatma",
+            "programi kapatma",
+            "uygulamayı kapat",
+            "uygulamayi kapat",
+            "uygulamayı kapatma",
+            "uygulamayi kapatma",
+            "kapan",
+        )
+        dense_tokens = (
+            "kendinikapat",
+            "kendimikapat",
+            "kendinikapatma",
+            "kendimikapatma",
+            "jarvisikapat",
+            "jarvisikapatma",
+            "programikapat",
+            "programikapatma",
+            "uygulamayikapat",
+            "uygulamayikapatma",
+        )
+        return any(p in lowered for p in direct) or any(tok in dense for tok in dense_tokens)
+
+    def _handle_shutdown_intent_from_text(self, text: str, source: str = "text") -> bool:
+        lowered = self._normalize_turkish_transcript(text).lower()
+        dense = lowered.replace(" ", "")
+        now = time.time()
+
+        if self._shutdown_confirm_pending_until > now:
+            # Kendi onay cümlemizi geri duyarsak yok say (mikrofon geri beslemesi).
+            if any(k in lowered for k in ("kendimi kapatıyorum", "onaylıyor musun", "onayliyor musun")):
+                self._suppress_model_output_once = True
+                return True
+            if self._is_shutdown_confirm_phrase(lowered, dense):
+                if self._loop:
+                    asyncio.run_coroutine_threadsafe(
+                        self._shutdown_with_farewell(source=f"{source}_confirm"),
+                        self._loop,
+                    )
+                else:
+                    self._shutdown_confirm_pending_until = 0.0
+                    self.ui.write_log("JARVIS: Onay alındı, güle güle.")
+                    self.ui.shutdown_confirmed(source=f"{source}_confirm")
+                self._suppress_model_output_once = True
+                self._suppress_model_output_until = time.time() + 2.0
+                self._block_mode_switch_until = time.time() + 2.0
+                self._ignore_model_audio_until = time.time() + 2.0
+                return True
+            if any(k in lowered for k in ("hayır", "hayir", "vazgeç", "vazgec", "iptal")):
+                self._shutdown_confirm_pending_until = 0.0
+                self.ui.write_log("JARVIS: Kapatma işlemi iptal edildi.")
+                self.ui.set_state("LISTENING")
+                self._suppress_model_output_once = True
+                self._suppress_model_output_until = time.time() + 2.0
+                self._block_mode_switch_until = time.time() + 2.0
+                self._ignore_model_audio_until = time.time() + 2.0
+                return True
+            # Onay beklerken modelin farklı yanıt üretmesini engelle.
+            self.ui.write_log("JARVIS: Kapatma için 'evet' veya 'onaylıyorum' demen yeterli.")
+            self._suppress_model_output_once = True
+            self._suppress_model_output_until = time.time() + 2.0
+            self._ignore_model_audio_until = time.time() + 2.0
+            return True
+
+        if self._is_shutdown_request_phrase(lowered, dense):
+            self._block_mode_switch_until = time.time() + 8.0
+            self._on_shutdown_request(source=source)
+            self.ui.set_state("LISTENING")
+            self._suppress_model_output_once = True
+            self._suppress_model_output_until = time.time() + 4.0
+            self._ignore_model_audio_until = time.time() + 4.0
+            return True
+        return False
 
     def _on_pause_toggle(self, paused: bool):
         self._paused = paused
@@ -625,7 +850,89 @@ class JarvisLive:
             return
         self.ui.write_log(f"Siz: {text}")
         lowered = self._normalize_turkish_transcript(text).lower()
+        lowered = lowered.replace("davam et", "devam et")
         dense = lowered.replace(" ", "")
+        if self._handle_shutdown_intent_from_text(text, source="text"):
+            return
+        bg_on_phrases = (
+            "arka planda devam et",
+            "arka planda çalış",
+            "arka planda calis",
+            "arka plan moduna geç",
+            "arka plan moduna gec",
+            "arka plana al",
+            "mini moda geç",
+            "mini moda al",
+            "mini mod",
+            "minimod",
+            "küçük pencere",
+            "kucuk pencere",
+            "küçült",
+            "kucult",
+            "küçük moda geç",
+            "küçük moda al",
+            "küçük moda geç",
+            "kucuk moda gec",
+            "arka plana geç",
+            "arka plana gec",
+        )
+        bg_off_phrases = (
+            "normal moda geç",
+            "normal moda gec",
+            "normal moda dön",
+            "normal moda don",
+            "normale dön",
+            "normale don",
+            "normal pencereye dön",
+            "normal pencereye don",
+            "ana pencereye dön",
+            "ana pencereye don",
+            "eski pencereye dön",
+            "eski pencereye don",
+            "tam moda geç",
+            "tam moda gec",
+            "tam ekrana dön",
+            "tam ekrana don",
+            "büyüt",
+            "buyut",
+        )
+        bg_on_dense = (
+            "arkaplandadevemet",
+            "arkaplandadevamet",
+            "arkaplanagec",
+            "arkaplanamodunagec",
+            "miniyegec",
+            "minimod",
+            "kucukmoda",
+            "kucukpencere",
+            "kucult",
+        )
+        bg_off_dense = (
+            "normalmodagec",
+            "normalmodadon",
+            "normaledon",
+            "normalpencereyedon",
+            "anapencereyedon",
+            "eskipencereyedon",
+            "tammodagec",
+            "tamekranadon",
+            "buyut",
+        )
+        if any(p in lowered for p in bg_on_phrases) or any(p in dense for p in bg_on_dense):
+            self.ui.set_background_mode(True)
+            self.ui.write_log("JARVIS: Arka planda devam moduna geçiyorum.")
+            self.ui.set_state("LISTENING")
+            return
+        if any(p in lowered for p in bg_off_phrases) or any(p in dense for p in bg_off_dense):
+            self.ui.set_background_mode(False)
+            self.ui.write_log("JARVIS: Normal pencereye geri dönüyorum.")
+            self.ui.set_state("LISTENING")
+            return
+        if ("github" in lowered or "git hub" in lowered) and any(k in lowered for k in ("kapat", "sekmeyi kapat", "sekmesini kapat")):
+            result = browser_control("close_domain_tab", query="github.com")
+            self.ui.write_log(f"JARVIS: {result}")
+            self.ui.set_state("LISTENING")
+            return
         if ("hesap makinesi" in lowered or "calculator" in lowered or "hesapmakinesi" in dense):
             if any(k in lowered for k in ("kapat", "kapa")) or "kapat" in dense:
                 result = close_app("hesap makinesi")
@@ -859,6 +1166,34 @@ class JarvisLive:
         return any(marker in text for marker in error_markers)
 
     @staticmethod
+    def _is_benign_disconnect_error(exc: BaseException) -> bool:
+        tokens = (
+            "session_closed_ok",
+            "1000 none",
+            "connectionclosedok",
+            "1011 none",
+            "internal error encountered",
+        )
+
+        def _walk(err: BaseException) -> list[str]:
+            parts = [str(err or "")]
+            nested = getattr(err, "exceptions", None)
+            if nested:
+                for sub in nested:
+                    if isinstance(sub, BaseException):
+                        parts.extend(_walk(sub))
+            cause = getattr(err, "__cause__", None)
+            if isinstance(cause, BaseException):
+                parts.extend(_walk(cause))
+            ctx = getattr(err, "__context__", None)
+            if isinstance(ctx, BaseException):
+                parts.extend(_walk(ctx))
+            return parts
+
+        blob = " | ".join(_walk(exc)).lower()
+        return any(token in blob for token in tokens)
+
+    @staticmethod
     def _should_play_success_sfx(tool_name: str, args: dict, result) -> bool:
         action_tools = {
             "open_app",
@@ -1014,10 +1349,20 @@ class JarvisLive:
 
             elif name == "close_app":
                 requested = str(args.get("app_name", "") or "").strip()
-                r = await loop.run_in_executor(
-                    None, lambda: close_app(requested)
-                )
-                result = r or f"{requested} kapatıldı."
+                rq_low = requested.lower()
+                if any(k in rq_low for k in ("jarvis", "j.a.r.v.i.s", "asistan", "assistant")):
+                    self._on_shutdown_request(source="tool_close_app")
+                    self.ui.set_state("LISTENING")
+                    self._suppress_model_output_once = True
+                    self._suppress_model_output_until = time.time() + 4.0
+                    self._ignore_model_audio_until = time.time() + 4.0
+                    result = "Kapatma onayı bekleniyor."
+                    print("[JARVIS] close_app(JARVIS) kapatma onay akışına yönlendirildi.")
+                else:
+                    r = await loop.run_in_executor(
+                        None, lambda: close_app(requested)
+                    )
+                    result = r or f"{requested} kapatıldı."
 
             elif name == "sys_info":
                 self._focus_ui_section_for_tool(name, args)
@@ -1101,6 +1446,23 @@ class JarvisLive:
                         args.get("query")
                     ))
                 result = r or "Tamam."
+
+            elif name == "set_background_mode":
+                now_ts = time.time()
+                if now_ts >= self._shutdown_confirm_pending_until:
+                    self._shutdown_confirm_pending_until = 0.0
+                if now_ts >= self._block_mode_switch_until:
+                    self._block_mode_switch_until = 0.0
+                if (now_ts < self._block_mode_switch_until) or (now_ts < self._shutdown_confirm_pending_until):
+                    result = "Kapatma onayı beklenirken mod değişikliği yapılmadı."
+                    print("[JARVIS] set_background_mode engellendi (kapatma akışı aktif).")
+                    return types.FunctionResponse(
+                        id=fc.id, name=name,
+                        response={"result": result}
+                    )
+                mini_mode = bool(args.get("mini_mode", False))
+                self.ui.set_background_mode(mini_mode)
+                result = "Arka plan modu etkinleştirildi." if mini_mode else "Normal pencereye dönüldü."
 
             elif name == "shell_run":
                 cmd = str(args.get("command", "") or "").strip()
@@ -1235,8 +1597,10 @@ class JarvisLive:
         )
 
     async def _send_realtime(self):
-        while True:
+        while not self._stop_requested.is_set():
             msg = await self.out_queue.get()
+            if msg is None or self._stop_requested.is_set():
+                return
             await self.session.send_realtime_input(media=msg)
 
     async def _listen_audio(self):
@@ -1248,7 +1612,7 @@ class JarvisLive:
             frames_per_buffer=CHUNK_SIZE,
         )
         try:
-            while True:
+            while not self._stop_requested.is_set():
                 data = await asyncio.to_thread(
                     stream.read, CHUNK_SIZE, exception_on_overflow=False)
                 try:
@@ -1273,9 +1637,16 @@ class JarvisLive:
                     self.ui.set_mic_level(0.0)
                 with self._speaking_lock:
                     jarvis_speaking = self._is_speaking
-                if not jarvis_speaking and not self.ui.muted and not self._paused:
+                if (
+                    not jarvis_speaking
+                    and not self.ui.muted
+                    and not self._paused
+                    and time.time() >= self._ignore_mic_until
+                ):
                     await self.out_queue.put({"data": data, "mime_type": "audio/pcm"})
         except Exception as e:
+            if self._stop_requested.is_set():
+                return
             print(f"[JARVIS] Mikrofon hatası: {e}")
             raise
         finally:
@@ -1287,8 +1658,10 @@ class JarvisLive:
         output_noise = False
         output_noise_samples = []
         try:
-            while True:
+            while not self._stop_requested.is_set():
                 async for response in self.session.receive():
+                    if self._stop_requested.is_set():
+                        return
                     if response.data:
                         self.audio_in_queue.put_nowait(response.data)
                         self._awaiting_response = False
@@ -1323,9 +1696,22 @@ class JarvisLive:
                             if full_in:
                                 full_in = self._normalize_turkish_transcript(full_in)
                                 self.ui.write_log(f"Siz: {full_in}")
+                                if self._handle_shutdown_intent_from_text(full_in, source="voice"):
+                                    in_buf = []
+                                    out_buf = []
+                                    output_noise = False
+                                    output_noise_samples = []
+                                    try:
+                                        await self._interrupt_audio()
+                                    except Exception:
+                                        pass
+                                    continue
                             in_buf = []
 
                             full_out = " ".join(out_buf).strip()
+                            if self._suppress_model_output_once or (time.time() < self._suppress_model_output_until):
+                                self._suppress_model_output_once = False
+                                full_out = ""
                             if full_out:
                                 self.ui.write_log(f"JARVIS: {full_out}")
                                 self._awaiting_response = False
@@ -1363,6 +1749,8 @@ class JarvisLive:
                             function_responses=fn_responses)
 
         except Exception as e:
+            if self._stop_requested.is_set():
+                return
             msg = str(e or "")
             benign_close = (
                 ("1000 None" in msg)
@@ -1385,7 +1773,7 @@ class JarvisLive:
             rate=RECV_SAMPLE_RATE, output=True,
         )
         try:
-            while True:
+            while not self._stop_requested.is_set():
                 try:
                     chunk = await asyncio.wait_for(
                         self.audio_in_queue.get(),
@@ -1395,9 +1783,15 @@ class JarvisLive:
                     # Ses çıkışı durduysa speaking state'ini sıfırla ki mikrofon tekrar açılsın.
                     self.set_speaking(False)
                     continue
+                if time.time() < self._ignore_model_audio_until:
+                    # Kapatma onayı gibi kritik akışlarda modelin araya girmesini engelle.
+                    self.set_speaking(False)
+                    continue
                 self.set_speaking(True)
                 await asyncio.to_thread(stream.write, chunk)
         except Exception as e:
+            if self._stop_requested.is_set():
+                return
             print(f"[JARVIS] Ses hatası: {e}")
             raise
         finally:
@@ -1410,7 +1804,7 @@ class JarvisLive:
             http_options={"api_version": "v1alpha"}
         )
 
-        while True:
+        while not self._stop_requested.is_set():
             # Duraklatılmışsa bağlanma, bekle
             if self._paused:
                 await asyncio.sleep(1)
@@ -1468,14 +1862,7 @@ class JarvisLive:
                     tg.create_task(self._watchdog())
 
             except Exception as e:
-                err_msg = str(e or "")
-                benign_close = (
-                    "SESSION_CLOSED_OK" in err_msg
-                    or "1000 None" in err_msg
-                    or "ConnectionClosedOK" in err_msg
-                    or "1011 None" in err_msg
-                    or "Internal error encountered" in err_msg
-                )
+                benign_close = self._is_benign_disconnect_error(e)
                 print(f"[JARVIS] Hata: {e}")
                 if not benign_close:
                     traceback.print_exc()
@@ -1502,6 +1889,8 @@ def main():
 
     ui = JarvisUI()
 
+    state = {"jarvis": None}
+
     def runner():
         ui.wait_for_api_key()
         try:
@@ -1509,15 +1898,23 @@ def main():
         except Exception:
             pass
         jarvis = JarvisLive(ui)
+        state["jarvis"] = jarvis
         try:
             asyncio.run(jarvis.run())
         except KeyboardInterrupt:
             print("\nKapatılıyor...")
 
-    threading.Thread(target=runner, daemon=True).start()
+    runner_thread = threading.Thread(target=runner, daemon=False)
+    runner_thread.start()
     try:
         ui.root.mainloop()
+    except KeyboardInterrupt:
+        print("[JARVIS] Klavyeden durdurma alındı, kapatılıyor...")
     finally:
+        jarvis = state.get("jarvis")
+        if jarvis:
+            jarvis.request_stop()
+        runner_thread.join(timeout=2.5)
         print("[JARVIS] UI mainloop sonlandı.")
 
 

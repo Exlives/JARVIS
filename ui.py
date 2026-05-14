@@ -4,7 +4,7 @@ Concentric teal rings  -  Segmented arcs
 Exlives
 """
 
-import os, time, math, random, signal, threading
+import os, time, math, random, signal, threading, traceback
 import subprocess
 import textwrap
 import tkinter as tk
@@ -479,6 +479,7 @@ class SoundManager:
 class JarvisUI:
     def __init__(self):
         self.root = tk.Tk()
+        self.root.report_callback_exception = self._report_callback_exception
         self.root.title("J.A.R.V.I.S")
         self.root.update_idletasks()
 
@@ -510,6 +511,7 @@ class JarvisUI:
         self._prev_geometry = self._window_geometry
         self._app_started_at = time.time()
         self._is_closing = False
+        self._shutdown_armed_until = 0.0
 
         self._set_layout_metrics(self.W, self.H)
 
@@ -518,6 +520,7 @@ class JarvisUI:
         self.user_speaking   = False
         self.muted           = False
         self.paused          = False
+
         self.scale           = 1.0
         self.target_scale    = 1.0
         self.halo_a          = 55.0
@@ -571,6 +574,7 @@ class JarvisUI:
         self.on_text_command = None
         self.on_pause_toggle = None
         self.on_stop_command = None
+        self.on_shutdown_request = None
         self.on_voice_change = None
         self.on_effects_state_change = None
 
@@ -688,6 +692,16 @@ class JarvisUI:
         self.root.after(120, self._enter_fullscreen)
         self._animate()
         self.root.protocol("WM_DELETE_WINDOW", lambda: self._shutdown(source="wm_close"))
+
+    @staticmethod
+    def _report_callback_exception(exc, val, tb):
+        # Ctrl+C sırasında Tk callback içinden gelen traceback gürültüsünü bastır.
+        if exc is KeyboardInterrupt:
+            return
+        try:
+            traceback.print_exception(exc, val, tb)
+        except Exception:
+            pass
 
     def _force_startup_size(self):
         if self._fullscreen:
@@ -1384,14 +1398,45 @@ class JarvisUI:
         if self.on_pause_toggle:
             threading.Thread(target=self.on_pause_toggle, args=(self.paused,), daemon=True).start()
 
-    def _shutdown(self, source: str = "unknown"):
+    def _shutdown(self, source: str = "unknown", force: bool = False):
         if self._is_closing:
             return
+        if not force and self.on_shutdown_request:
+            try:
+                threading.Thread(
+                    target=self.on_shutdown_request,
+                    args=(source,),
+                    daemon=True,
+                ).start()
+                return
+            except Exception:
+                pass
+        if force:
+            self._is_closing = True
+            self._shutdown_armed_until = 0.0
+            print(f"[JARVIS] UI kapanıyor. source={source} (force)")
+            self.write_debug(f"Kapanma tetikleyicisi: {source} (force)", level="WARN")
+            self.sound.stop_all()
+            self.write_log("SYS: JARVIS kapatılıyor...")
+            try:
+                self.root.after(120, self.root.destroy)
+            except Exception:
+                os._exit(0)
+            return
+        now = time.time()
         # Açılışın hemen ardından gelen yanlış/istemsiz kapanma tetiklerini yumuşat.
-        if (time.time() - self._app_started_at) < 2.0 and source in {"escape", "wm_close"}:
+        if (now - self._app_started_at) < 2.0 and source in {"escape", "wm_close"}:
             self.write_debug(f"Kapanma isteği yok sayıldı (erken tetik): {source}", level="WARN")
             return
+        # Yanlış tıklamalar için iki adımlı kapanma koruması.
+        if now > self._shutdown_armed_until:
+            self._shutdown_armed_until = now + 1.8
+            self.write_log("SYS: Kapatmak için tekrar kapat komutu ver.")
+            self.write_debug(f"Kapanma isteği alındı (beklemede): {source}", level="WARN")
+            return
         self._is_closing = True
+        self._shutdown_armed_until = 0.0
+        print(f"[JARVIS] UI kapanıyor. source={source}")
         self.write_debug(f"Kapanma tetikleyicisi: {source}", level="WARN")
         self.sound.stop_all()
         self.write_log("SYS: JARVIS kapatılıyor...")
@@ -1399,6 +1444,9 @@ class JarvisUI:
             self.root.after(220, self.root.destroy)
         except Exception:
             os._exit(0)
+
+    def shutdown_confirmed(self, source: str = "confirm"):
+        self._shutdown(source=source, force=True)
 
     def _toggle_fullscreen(self):
         self._fullscreen = not self._fullscreen
@@ -1415,6 +1463,18 @@ class JarvisUI:
         else:
             self._enter_mini_mode()
         self._draw_background_button()
+
+    def set_background_mode(self, mini_mode: bool):
+        def _apply():
+            want_mini = bool(mini_mode)
+            if want_mini == self._mini_mode:
+                return
+            if want_mini:
+                self._enter_mini_mode()
+            else:
+                self._exit_mini_mode()
+            self._draw_background_button()
+        self.root.after(0, _apply)
 
     def _enter_mini_mode(self):
         self._mini_mode = True
@@ -1790,6 +1850,10 @@ class JarvisUI:
             self.status_blink = not self.status_blink
 
         try:
+            # Nadir durumda mini mod aktif kalıp pencere boyutu normal mod gibi büyükse
+            # arayüz boş/kısmi görünebiliyor; otomatik toparla.
+            if self._mini_mode and (self.W > 900 or self.H > 700):
+                self._exit_mini_mode()
             self._draw()
             self._render_fail_count = 0
         except Exception as exc:
