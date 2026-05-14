@@ -510,6 +510,7 @@ class JarvisLive:
         self._awaiting_response = False
         self._awaiting_since = 0.0
         self._watchdog_reconnect_inflight = False
+        self._pending_app_alias_for_path = ""
 
     def _on_pause_toggle(self, paused: bool):
         self._paused = paused
@@ -714,6 +715,20 @@ class JarvisLive:
             low = low[0].upper() + low[1:]
         return low
 
+    @staticmethod
+    def _looks_like_launch_command(text: str) -> bool:
+        t = (text or "").strip().lower()
+        if not t:
+            return False
+        return (
+            ":\\" in t
+            or t.startswith(".\\")
+            or t.startswith("\\\\")
+            or ".exe" in t
+            or "--processstart" in t
+            or t.startswith("start ")
+        )
+
     def _build_config(self) -> types.LiveConnectConfig:
         memory  = load_memory()
         mem_str = format_memory_for_prompt(memory)
@@ -769,9 +784,26 @@ class JarvisLive:
                 )
 
             elif name == "open_app":
+                requested = str(args.get("app_name", "") or "").strip()
                 r = await loop.run_in_executor(
-                    None, lambda: open_app(args.get("app_name", "")))
-                result = r or f"{args.get('app_name')} açıldı."
+                    None, lambda: open_app(requested))
+                result = r or f"{requested} açıldı."
+                low_result = str(result or "").lower()
+                is_success = ("açıldı" in low_result) or ("acildi" in low_result)
+                is_fail = ("bulunamadı" in low_result) or ("bulunamadi" in low_result) or ("açılamadı" in low_result) or ("acilamadi" in low_result)
+
+                # Önceki uygulama adı bulunamadıysa, kullanıcı sonrasında yol verdiğinde eşleyip hafızaya al.
+                if is_fail and requested and not self._looks_like_launch_command(requested):
+                    self._pending_app_alias_for_path = requested.lower()
+                elif is_success and self._looks_like_launch_command(requested) and self._pending_app_alias_for_path:
+                    alias = self._pending_app_alias_for_path
+                    update_memory({"app_launch_commands": {alias: {"value": requested}}})
+                    self._pending_app_alias_for_path = ""
+                    result = f"{result} Yol kaydedildi: '{alias}' artık bu komutla açılacak."
+                elif is_success and requested and not self._looks_like_launch_command(requested):
+                    # başarılıysa bekleyen eşlemeyi temizle
+                    if self._pending_app_alias_for_path == requested.lower():
+                        self._pending_app_alias_for_path = ""
 
             elif name == "sys_info":
                 self._focus_ui_section_for_tool(name, args)
@@ -857,9 +889,21 @@ class JarvisLive:
                 result = r or "Tamam."
 
             elif name == "shell_run":
+                cmd = str(args.get("command", "") or "").strip()
                 r = await loop.run_in_executor(
-                    None, lambda: shell_run(args.get("command", "")))
+                    None, lambda: shell_run(cmd))
                 result = r or "Komut çalıştırıldı."
+                low_result = str(result or "").lower()
+                is_shell_success = "hata:" not in low_result and "cannot find" not in low_result and "not found" not in low_result
+                if (
+                    is_shell_success
+                    and self._pending_app_alias_for_path
+                    and self._looks_like_launch_command(cmd)
+                ):
+                    alias = self._pending_app_alias_for_path
+                    update_memory({"app_launch_commands": {alias: {"value": cmd}}})
+                    self._pending_app_alias_for_path = ""
+                    result = f"{result}\nYol kaydedildi: '{alias}' artık bu komutla açılacak."
 
             elif name == "play_media":
                 r = await loop.run_in_executor(

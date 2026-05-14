@@ -7,8 +7,10 @@ Exlives
 import os, time, math, random, signal, threading
 import subprocess
 import tkinter as tk
+from tkinter import filedialog
 from collections import deque
 from pathlib import Path
+import json
 import psutil
 from PIL import Image, ImageTk
 
@@ -16,6 +18,8 @@ from app_config import has_gemini_api_key, load_app_config, save_app_config
 from actions.weather import get_weather_summary
 
 BASE_DIR = Path(__file__).resolve().parent
+CONFIG_PATH = BASE_DIR / "config" / "api_keys.json"
+MEMORY_PATH = BASE_DIR / "memory" / "memory.json"
 
 SYSTEM_NAME = "J.A.R.V.I.S"
 MODEL_BADGE = "VOICE CORE  -  Windows"
@@ -549,7 +553,7 @@ class JarvisUI:
             "panel_x": 14,
             "panel_y": HDR_H + 10,
             "panel_w": 320,
-            "panel_h": 372,
+            "panel_h": 438,
         }
         self.setup_frame = None
         self.api_entry = None
@@ -650,6 +654,7 @@ class JarvisUI:
         self._build_api_button(self._settings_body)
         self._build_fx_slider(self._settings_body)
         self._build_mic_slider(self._settings_body)
+        self._build_backup_buttons(self._settings_body)
         self._layout_settings_controls()
         self._place_layout_widgets()
 
@@ -914,6 +919,8 @@ class JarvisUI:
         self._mic_scale.place(x=0, y=184, width=inner_w, height=26)
         self._voice_label.place(x=0, y=220)
         self._voice_menu.place(x=88, y=214, width=inner_w - 88, height=30)
+        self._backup_btn.place(x=0, y=258, width=inner_w, height=30)
+        self._restore_btn.place(x=0, y=294, width=inner_w, height=30)
 
     def _refresh_settings_status(self):
         if not hasattr(self, "_settings_status_primary"):
@@ -1089,6 +1096,56 @@ class JarvisUI:
     def _open_api_settings(self):
         self._show_setup_ui(edit_mode=self._api_key_ready)
 
+    def _backup_data(self):
+        try:
+            target = filedialog.asksaveasfilename(
+                title="JARVIS yedeğini kaydet",
+                defaultextension=".json",
+                filetypes=[("JSON", "*.json")],
+                initialfile=f"jarvis_backup_{time.strftime('%Y%m%d_%H%M%S')}.json",
+            )
+            if not target:
+                return
+
+            payload = {
+                "version": 1,
+                "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+                "config": {},
+                "memory": {},
+            }
+            if CONFIG_PATH.exists():
+                payload["config"] = json.loads(CONFIG_PATH.read_text(encoding="utf-8"))
+            if MEMORY_PATH.exists():
+                payload["memory"] = json.loads(MEMORY_PATH.read_text(encoding="utf-8"))
+
+            Path(target).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            self.write_log(f"SYS: Yedek alindi: {target}")
+        except Exception as exc:
+            self.write_log(f"ERR: Yedek alinamadi - {exc}")
+
+    def _restore_data(self):
+        try:
+            source = filedialog.askopenfilename(
+                title="JARVIS yedegini sec",
+                filetypes=[("JSON", "*.json")],
+            )
+            if not source:
+                return
+            raw = json.loads(Path(source).read_text(encoding="utf-8"))
+            config_data = raw.get("config", {})
+            memory_data = raw.get("memory", {})
+            if not isinstance(config_data, dict) or not isinstance(memory_data, dict):
+                raise ValueError("Gecersiz yedek formati")
+
+            CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+            MEMORY_PATH.parent.mkdir(parents=True, exist_ok=True)
+            CONFIG_PATH.write_text(json.dumps(config_data, ensure_ascii=False, indent=2), encoding="utf-8")
+            MEMORY_PATH.write_text(json.dumps(memory_data, ensure_ascii=False, indent=2), encoding="utf-8")
+            self._refresh_settings_status()
+            self.write_log("SYS: Yedek geri yüklendi. Degisiklikler aktif.")
+        except Exception as exc:
+            self.write_log(f"ERR: Yedek geri yuklenemedi - {exc}")
+
     def _close_setup_ui(self):
         if self.setup_frame and self.setup_frame.winfo_exists():
             self.setup_frame.destroy()
@@ -1096,6 +1153,37 @@ class JarvisUI:
         self.api_entry = None
         self.youtube_api_entry = None
         self.youtube_handle_entry = None
+
+    def _build_backup_buttons(self, parent=None):
+        parent = parent or self.root
+        self._backup_btn = tk.Button(
+            parent,
+            text="YEDEK AL",
+            command=self._backup_data,
+            fg=C_PRI,
+            bg=C_PANEL,
+            activeforeground=C_BG,
+            activebackground=C_PRI,
+            font=font_body_bold(10),
+            borderwidth=0,
+            cursor="hand2",
+            highlightthickness=1,
+            highlightbackground=C_MID,
+        )
+        self._restore_btn = tk.Button(
+            parent,
+            text="YEDEKTEN GERI YUKLE",
+            command=self._restore_data,
+            fg=C_BLUE,
+            bg=C_PANEL,
+            activeforeground=C_BG,
+            activebackground=C_BLUE,
+            font=font_body_bold(10),
+            borderwidth=0,
+            cursor="hand2",
+            highlightthickness=1,
+            highlightbackground=C_MID,
+        )
 
     # â”€â”€ SFX toggle â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     def _build_sfx_button(self, parent=None):
